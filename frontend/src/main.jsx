@@ -100,16 +100,18 @@ function Header({ activePage, user, onLogout }) {
             >
               {isAdmin ? "Admin" : "Upload"}
             </a>
-            <a
-              className={activePage === "settings" ? "active" : ""}
-              href={isAdmin ? "/admin/settings" : "/settings"}
-              onClick={(event) => {
-                event.preventDefault();
-                navigate(isAdmin ? "/admin/settings" : "/settings");
-              }}
-            >
-              Settings
-            </a>
+            {!isAdmin && (
+              <a
+                className={activePage === "settings" ? "active" : ""}
+                href="/settings"
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigate("/settings");
+                }}
+              >
+                Settings
+              </a>
+            )}
             <button className="iconButton" type="button" onClick={onLogout} aria-label="Log out" title="Log out">
               <LogOut size={18} />
             </button>
@@ -882,7 +884,7 @@ function App() {
   }
 
   if (user.role === "ADMIN") {
-    const adminView = path === "/admin/activity" ? "activity" : path === "/admin/settings" ? "settings" : "admin";
+    const adminView = path === "/admin/activity" ? "activity" : "admin";
 
     return (
       <main>

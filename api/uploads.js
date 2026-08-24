@@ -2,6 +2,7 @@ import multer from "multer";
 import { prisma } from "../backend/db.js";
 import { requireRole } from "../backend/utils/auth.js";
 import { logActivity } from "../backend/utils/activity.js";
+import { validateArffFile } from "../backend/utils/arffValidator.js";
 
 export const upload = multer({
   storage: multer.memoryStorage(),
@@ -9,36 +10,6 @@ export const upload = multer({
     fileSize: 10 * 1024 * 1024
   }
 });
-
-function validateArffFile(file) {
-  const errors = [];
-  if (!file?.originalname?.toLowerCase().endsWith(".arff")) {
-    errors.push("Only files with the .arff extension are accepted.");
-    return errors;
-  }
-
-  const content = file.buffer?.toString("utf8") || "";
-  const lines = content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("%"));
-  const lowerLines = lines.map((line) => line.toLowerCase());
-  const relationIndex = lowerLines.findIndex((line) => line.startsWith("@relation"));
-  const attributeIndex = lowerLines.findIndex((line) => line.startsWith("@attribute"));
-  const dataIndex = lowerLines.findIndex((line) => line.startsWith("@data"));
-
-  if (relationIndex === -1) errors.push("Missing @RELATION declaration.");
-  if (attributeIndex === -1) errors.push("Missing at least one @ATTRIBUTE declaration.");
-  if (dataIndex === -1) errors.push("Missing @DATA section.");
-  if (dataIndex !== -1 && attributeIndex !== -1 && dataIndex < attributeIndex) {
-    errors.push("@DATA section must appear after @ATTRIBUTE declarations.");
-  }
-  if (dataIndex !== -1 && !lines.slice(dataIndex + 1).some((line) => !line.startsWith("@"))) {
-    errors.push("Missing data rows after @DATA.");
-  }
-
-  return errors;
-}
 
 export function registerUploadRoutes(app) {
   app.post("/api/uploads/arff", requireRole("USER"), upload.single("file"), async (req, res) => {
@@ -54,8 +25,8 @@ export function registerUploadRoutes(app) {
       });
     }
 
-    const errors = validateArffFile(file);
-    const valid = errors.length === 0;
+    const validation = validateArffFile(file);
+    const { valid, errors } = validation;
 
     let dataset;
     try {
