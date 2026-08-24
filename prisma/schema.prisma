@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ActivityStatus {
+  SUCCESS
+  FAILURE
+}
+
+model User {
+  id               String        @id @default(cuid())
+  name             String?
+  email            String        @unique
+  organization     String?
+  passwordHash     String
+  role             String        @default("USER")
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  activities       ActivityLog[]
+}
+
+model Dataset {
+  id             String         @id @default(cuid())
+  originalName   String
+  fileSize       Int
+  fileType       String         @default("ARFF")
+  valid          Boolean        @default(false)
+  errors         Json?
+  createdAt      DateTime       @default(now())
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  message   String
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String         @id @default(cuid())
+  userId    String?
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  status    ActivityStatus @default(SUCCESS)
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime       @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([ipAddress])
+}
