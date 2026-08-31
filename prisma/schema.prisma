@@ -17,23 +17,31 @@ model User {
   name             String?
   email            String        @unique
   organization     String?
+  phoneNumber      String?       @unique
+  phoneVerifiedAt  DateTime?
+  phoneMfaEnabled  Boolean       @default(false)
   passwordHash     String
   role             String        @default("USER")
   twoFactorSecret  String?
   twoFactorEnabled Boolean       @default(false)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+  datasets         Dataset[]
   activities       ActivityLog[]
 }
 
 model Dataset {
   id             String         @id @default(cuid())
+  userId         String?
+  user           User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   originalName   String
   fileSize       Int
   fileType       String         @default("ARFF")
   valid          Boolean        @default(false)
   errors         Json?
   createdAt      DateTime       @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model ContactMessage {

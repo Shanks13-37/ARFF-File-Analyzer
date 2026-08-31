@@ -32,6 +32,7 @@ export function registerUploadRoutes(app) {
     try {
       dataset = await prisma.dataset.create({
         data: {
+          userId: req.user.sub,
           originalName: file.originalname,
           fileSize: file.size,
           valid,

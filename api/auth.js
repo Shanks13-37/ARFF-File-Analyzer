@@ -6,6 +6,7 @@ import { requireAuth, signToken, verifyToken } from "../backend/utils/auth.js";
 import { logActivity } from "../backend/utils/activity.js";
 import { isStrongPassword, PASSWORD_REQUIREMENTS } from "../backend/utils/password.js";
 import { rateLimit } from "../backend/utils/rateLimit.js";
+import { checkPhoneCode, normalizePhoneNumber, sendPhoneCode } from "../backend/utils/phoneMfa.js";
 
 function publicUser(user) {
   return {
@@ -14,6 +15,9 @@ function publicUser(user) {
     email: user.email,
     organization: user.organization,
     role: user.role,
+    phoneNumber: user.phoneNumber,
+    phoneVerifiedAt: user.phoneVerifiedAt,
+    phoneMfaEnabled: user.phoneMfaEnabled,
     twoFactorEnabled: user.twoFactorEnabled
   };
 }
@@ -65,12 +69,14 @@ export function registerAuthRoutes(app) {
     max: 10,
     message: "Too many login attempts. Please try again later."
   });
+  const phoneLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: "Too many SMS verification attempts. Please try again later." });
 
   app.post("/api/auth/register", registerLimiter, async (req, res) => {
-    const { name, email, organization, password, confirmPassword } = req.body || {};
+    const { name, email, organization, phoneNumber, password, confirmPassword } = req.body || {};
     const cleanName = String(name || "").trim();
     const cleanEmail = String(email || "").trim().toLowerCase();
     const cleanOrganization = String(organization || "").trim();
+    let cleanPhoneNumber;
 
     if (cleanName.length < 2) {
       return res.status(400).json({ error: "Enter your full name." });
@@ -84,6 +90,11 @@ export function registerAuthRoutes(app) {
     if (String(password || "") !== String(confirmPassword || "")) {
       return res.status(400).json({ error: "Password and confirm password must match." });
     }
+    try {
+      cleanPhoneNumber = normalizePhoneNumber(phoneNumber);
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
 
     try {
       const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
@@ -91,12 +102,18 @@ export function registerAuthRoutes(app) {
         await logActivity(req, "USER_REGISTER", "FAILURE", { email: cleanEmail, reason: "Duplicate email" });
         return res.status(409).json({ error: "An account with this email already exists. Please log in instead." });
       }
+      const existingPhone = await prisma.user.findUnique({ where: { phoneNumber: cleanPhoneNumber } });
+      if (existingPhone) return res.status(409).json({ error: "That phone number is already linked to an account." });
+
+      // Send before creating the account so an unavailable SMS provider does not leave an unusable account behind.
+      await sendPhoneCode(cleanPhoneNumber);
 
       const user = await prisma.user.create({
         data: {
           name: cleanName,
           email: cleanEmail,
           organization: cleanOrganization || null,
+          phoneNumber: cleanPhoneNumber,
           passwordHash: await bcrypt.hash(String(password), 12),
           role: "USER"
         }
@@ -104,8 +121,10 @@ export function registerAuthRoutes(app) {
 
       await logActivity(req, "USER_REGISTER", "SUCCESS", { email: cleanEmail }, user.id);
       return res.status(201).json({
-        token: createAuthToken(user),
-        user: publicUser(user)
+        phoneEnrollmentRequired: true,
+        enrollmentToken: signToken({ purpose: "phone_enrollment", sub: user.id, phoneNumber: cleanPhoneNumber }, "10m"),
+        phoneNumber: cleanPhoneNumber,
+        message: "Enter the SMS code to finish creating your account."
       });
     } catch (error) {
       if (error.code === "P2002") {
@@ -113,6 +132,9 @@ export function registerAuthRoutes(app) {
         return res.status(409).json({ error: "An account with this email already exists." });
       }
       console.error(error);
+      if (String(error.message || "").includes("SMS verification is not configured")) {
+        return res.status(503).json({ error: error.message });
+      }
       return res.status(503).json({ error: "Registration service is unavailable. Check the database connection." });
     }
   });
@@ -151,6 +173,20 @@ export function registerAuthRoutes(app) {
         return res.status(401).json({ error: "Invalid two-step authentication code." });
       }
 
+      if (user.role === "USER" && user.phoneNumber && !user.phoneVerifiedAt) {
+        await sendPhoneCode(user.phoneNumber);
+        return res.json({ phoneEnrollmentRequired: true, enrollmentToken: signToken({ purpose: "phone_enrollment", sub: user.id, phoneNumber: user.phoneNumber }, "10m"), phoneNumber: user.phoneNumber, message: "Verify your phone number to finish signing in." });
+      }
+
+      if (user.role === "USER" && user.phoneMfaEnabled && user.phoneNumber && user.phoneVerifiedAt) {
+        await sendPhoneCode(user.phoneNumber);
+        return res.json({
+          requiresPhoneVerification: true,
+          phoneChallengeToken: signToken({ purpose: "phone_login", sub: user.id, phoneNumber: user.phoneNumber }, "10m"),
+          phoneNumber: user.phoneNumber
+        });
+      }
+
       await logActivity(req, user.role === "ADMIN" ? "ADMIN_LOGIN" : "USER_LOGIN", "SUCCESS", {}, user.id);
       return res.json({
         token: createAuthToken(user),
@@ -159,6 +195,46 @@ export function registerAuthRoutes(app) {
     } catch (error) {
       console.error(error);
       return res.status(503).json({ error: "Login service is unavailable. Check the database connection." });
+    }
+  });
+
+  app.post("/api/auth/phone/send-enrollment", requireAuth, phoneLimiter, async (req, res) => {
+    try {
+      if (req.user.role !== "USER") return res.status(403).json({ error: "Phone MFA enrollment is available to user accounts only." });
+      const phoneNumber = normalizePhoneNumber(req.body?.phoneNumber);
+      const existing = await prisma.user.findFirst({ where: { phoneNumber, NOT: { id: req.user.sub } } });
+      if (existing) return res.status(409).json({ error: "That phone number is already linked to another account." });
+      await sendPhoneCode(phoneNumber);
+      return res.json({ enrollmentToken: signToken({ purpose: "phone_enrollment", sub: req.user.sub, phoneNumber }, "10m"), phoneNumber });
+    } catch (error) {
+      return res.status(400).json({ error: error.message || "Unable to send the SMS code." });
+    }
+  });
+
+  app.post("/api/auth/phone/confirm-enrollment", phoneLimiter, async (req, res) => {
+    try {
+      const payload = verifyToken(req.body?.enrollmentToken);
+      if (payload.purpose !== "phone_enrollment") throw new Error("Phone enrollment session expired. Start again.");
+      if (!(await checkPhoneCode(payload.phoneNumber, req.body?.code))) return res.status(401).json({ error: "Invalid SMS verification code." });
+      const user = await prisma.user.update({ where: { id: payload.sub }, data: { phoneNumber: payload.phoneNumber, phoneVerifiedAt: new Date(), phoneMfaEnabled: true } });
+      await logActivity(req, "PHONE_MFA_ENABLED", "SUCCESS", {}, user.id);
+      return res.json({ message: "Phone two-step authentication is enabled.", token: createAuthToken(user), user: publicUser(user) });
+    } catch (error) {
+      return res.status(400).json({ error: error.message || "Unable to verify the SMS code." });
+    }
+  });
+
+  app.post("/api/auth/phone/verify-login", phoneLimiter, async (req, res) => {
+    try {
+      const payload = verifyToken(req.body?.phoneChallengeToken);
+      if (payload.purpose !== "phone_login") throw new Error("SMS verification session expired. Sign in again.");
+      if (!(await checkPhoneCode(payload.phoneNumber, req.body?.code))) return res.status(401).json({ error: "Invalid SMS verification code." });
+      const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+      if (!user || !user.phoneMfaEnabled || user.phoneNumber !== payload.phoneNumber) throw new Error("SMS verification session expired. Sign in again.");
+      await logActivity(req, "PHONE_MFA_LOGIN", "SUCCESS", {}, user.id);
+      return res.json({ token: createAuthToken(user), user: publicUser(user) });
+    } catch (error) {
+      return res.status(401).json({ error: error.message || "Unable to verify the SMS code." });
     }
   });
 

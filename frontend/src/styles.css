@@ -784,6 +784,29 @@ button:disabled {
   padding: 14px 18px;
 }
 
+.logHead.adminLog,
+.logRow.adminLog {
+  grid-template-columns: 100px 1.1fr 1.6fr 1fr 1fr;
+  min-width: 940px;
+}
+
+.datasetSection {
+  margin: 32px auto 0;
+  max-width: 1180px;
+  padding: 0 24px;
+}
+
+.datasetHead,
+.datasetRow {
+  grid-template-columns: 1.6fr 100px 100px 1fr;
+}
+
+.datasetHead.adminDataset,
+.datasetRow.adminDataset {
+  grid-template-columns: 1.2fr 1.8fr 100px 100px 1fr;
+  min-width: 940px;
+}
+
 .logHead {
   background: #e0f2fe;
   color: #1e3a8a;

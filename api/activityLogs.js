@@ -7,6 +7,7 @@ export function registerActivityLogRoutes(app) {
       const isAdmin = req.user.role === "ADMIN";
       const logs = await prisma.activityLog.findMany({
         where: isAdmin ? undefined : { userId: req.user.sub },
+        include: isAdmin ? { user: { select: { id: true, name: true, email: true } } } : undefined,
         orderBy: { createdAt: "desc" },
         take: 25
       });

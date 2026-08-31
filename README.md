@@ -236,6 +236,7 @@ Key fields:
 - `fileType`
 - `valid`
 - `errors`
+- `userId` (the account that uploaded the dataset; older records remain unassigned)
 
 ### ActivityLog
 
@@ -276,7 +277,7 @@ Role guards:
 - `requireRole("USER")`: normal users only
 - `requireAdmin`: administrators only
 
-The upload endpoint requires the `USER` role. Admin settings and activity logs require the `ADMIN` role.
+The upload endpoint requires the `USER` role. Users can retrieve only their own dataset history and activity logs; administrators can retrieve all records with their owner identity. Admin settings require the `ADMIN` role.
 
 ## Admin Two-Step Authentication
 

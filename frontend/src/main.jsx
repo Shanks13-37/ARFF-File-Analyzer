@@ -71,6 +71,53 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
+function DatasetHistory({ token, isAdmin = false, refreshKey = 0 }) {
+  const [datasets, setDatasets] = useState([]);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/datasets`, { headers: authHeaders(token) })
+      .then(parseJson)
+      .then((data) => {
+        setDatasets(data.datasets || []);
+        setMessage("");
+      })
+      .catch((error) => {
+        setDatasets([]);
+        setMessage(error.message);
+      });
+  }, [token, refreshKey]);
+
+  return (
+    <div className="activitySection datasetSection">
+      <div className="sectionTitle">
+        <Database size={22} />
+        <h2>{isAdmin ? "All Uploaded Datasets" : "My Uploaded Datasets"}</h2>
+      </div>
+      <div className="logTable datasetTable">
+        <div className={`logHead datasetHead ${isAdmin ? "adminDataset" : ""}`}>
+          <span>File</span>
+          {isAdmin && <span>Owner</span>}
+          <span>Result</span>
+          <span>Size</span>
+          <span>Time</span>
+        </div>
+        {message ? <p className="empty">{message}</p> : datasets.length === 0 ? (
+          <p className="empty">No uploaded datasets yet.</p>
+        ) : datasets.map((dataset) => (
+          <div className={`logRow datasetRow ${isAdmin ? "adminDataset" : ""}`} key={dataset.id}>
+            <span>{dataset.originalName}</span>
+            {isAdmin && <span>{dataset.user ? `${dataset.user.name || dataset.user.email} (${dataset.user.id})` : "Unassigned legacy record"}</span>}
+            <span className={dataset.valid ? "ok" : "bad"}>{dataset.valid ? "VALID" : "INVALID"}</span>
+            <span>{formatBytes(dataset.fileSize)}</span>
+            <span>{new Date(dataset.createdAt).toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Header({ activePage, user, onLogout }) {
   const isAdmin = user?.role === "ADMIN";
 
@@ -165,9 +212,11 @@ function BackgroundEffects() {
 
 function AuthPanel({ mode, onAuthenticated }) {
   const isRegister = mode === "register";
-  const [form, setForm] = useState({ name: "", email: "", organization: "", password: "", confirmPassword: "" });
+  const [form, setForm] = useState({ name: "", email: "", organization: "", phoneNumber: "", password: "", confirmPassword: "" });
   const [setup, setSetup] = useState(null);
   const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
+  const [phoneChallenge, setPhoneChallenge] = useState(null);
+  const [phoneEnrollment, setPhoneEnrollment] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const showPasswordFeedback = isRegister && !setup && (form.password || form.confirmPassword);
@@ -228,12 +277,55 @@ function AuthPanel({ mode, onAuthenticated }) {
         return;
       }
 
+      if (data.requiresPhoneVerification) {
+        setPhoneChallenge(data);
+        setMessage("Enter the code sent to your phone.");
+        return;
+      }
+
+      if (data.phoneEnrollmentRequired) {
+        setPhoneEnrollment(data);
+        setMessage(data.message);
+        return;
+      }
+
       onAuthenticated(data.token, data.user);
     } catch (error) {
       setMessage(error.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function submitPhoneLogin(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage("");
+    try {
+      const data = await parseJson(await fetch(`${API_URL}/api/auth/phone/verify-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneChallengeToken: phoneChallenge.phoneChallengeToken, code: form.token })
+      }));
+      onAuthenticated(data.token, data.user);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitPhoneEnrollment(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage("");
+    try {
+      const data = await parseJson(await fetch(`${API_URL}/api/auth/phone/confirm-enrollment`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enrollmentToken: phoneEnrollment.enrollmentToken, code: form.token })
+      }));
+      onAuthenticated(data.token, data.user);
+    } catch (error) { setMessage(error.message); } finally { setLoading(false); }
   }
 
   async function submitSetup(event) {
@@ -258,13 +350,15 @@ function AuthPanel({ mode, onAuthenticated }) {
   }
 
   return (
-    <form className="authPanel" onSubmit={setup ? submitSetup : submit}>
+    <form className="authPanel" onSubmit={phoneEnrollment ? submitPhoneEnrollment : phoneChallenge ? submitPhoneLogin : setup ? submitSetup : submit}>
       <div className="panelHeader">
         {isRegister ? <UserPlus size={22} /> : <LogIn size={22} />}
         <div>
-          <h2>{setup ? "Enable Two-Step Authentication" : isRegister ? "Create Account" : "Login"}</h2>
+          <h2>{phoneEnrollment || phoneChallenge ? "Verify Your Phone" : setup ? "Enable Two-Step Authentication" : isRegister ? "Create Account" : "Login"}</h2>
           <p>
-            {setup
+            {phoneEnrollment || phoneChallenge
+              ? `Enter the 6-digit SMS code sent to ${(phoneEnrollment || phoneChallenge).phoneNumber}.`
+              : setup
               ? "Scan the QR code, then enter the 6-digit code."
               : isRegister
                 ? "Register with your details before uploading datasets."
@@ -286,7 +380,7 @@ function AuthPanel({ mode, onAuthenticated }) {
         </>
       )}
 
-      {!setup && (
+      {!setup && !phoneChallenge && !phoneEnrollment && (
         <>
           <label className="field">
             <span>Email</span>
@@ -298,6 +392,10 @@ function AuthPanel({ mode, onAuthenticated }) {
           </label>
           {isRegister && (
             <>
+              <label className="field">
+                <span>Phone number</span>
+                <input placeholder="+919876543210" value={form.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} />
+              </label>
               {showPasswordFeedback && (
                 <PasswordFeedback password={form.password} confirmPassword={form.confirmPassword} matchLabel="Passwords match" />
               )}
@@ -314,9 +412,9 @@ function AuthPanel({ mode, onAuthenticated }) {
         </>
       )}
 
-      {(requiresTwoFactor || setup) && (
+      {(requiresTwoFactor || setup || phoneChallenge || phoneEnrollment) && (
         <label className="field">
-          <span>Authenticator code</span>
+          <span>{phoneChallenge || phoneEnrollment ? "SMS code" : "Authenticator code"}</span>
           <input inputMode="numeric" maxLength="6" value={form.token || ""} onChange={(event) => updateField("token", event.target.value)} />
         </label>
       )}
@@ -332,10 +430,10 @@ function AuthPanel({ mode, onAuthenticated }) {
 
       <button type="submit" disabled={loading}>
         {isRegister ? <UserPlus size={18} /> : <ShieldCheck size={18} />}
-        {loading ? "Please wait..." : setup ? "Verify & Continue" : isRegister ? "Register & Continue" : "Login"}
+        {loading ? "Please wait..." : phoneChallenge || phoneEnrollment || setup ? "Verify & Continue" : isRegister ? "Register & Continue" : "Login"}
       </button>
 
-      {!setup && (
+      {!setup && !phoneChallenge && !phoneEnrollment && (
         <div className="authSwitch">
           {isRegister ? (
             <>
@@ -440,6 +538,7 @@ function UploadWorkspace({ token, user, onLogout }) {
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
 
   const selectedFileStatus = useMemo(() => {
     if (!file) return null;
@@ -465,7 +564,9 @@ function UploadWorkspace({ token, user, onLogout }) {
         headers: authHeaders(token),
         body
       });
-      setResult(await response.json());
+      const data = await response.json();
+      setResult(data);
+      setHistoryVersion((value) => value + 1);
     } catch {
       setResult({ valid: false, error: "Unable to reach the upload server." });
     } finally {
@@ -529,6 +630,7 @@ function UploadWorkspace({ token, user, onLogout }) {
         </form>
 
       </div>
+      <DatasetHistory token={token} refreshKey={historyVersion} />
     </section>
   );
 }
@@ -541,6 +643,9 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
   const [message, setMessage] = useState("");
   const [setup, setSetup] = useState(null);
   const [setupCode, setSetupCode] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneEnrollment, setPhoneEnrollment] = useState(null);
+  const [phoneCode, setPhoneCode] = useState("");
   const showPasswordFeedback = Boolean(form.newPassword || form.confirmPassword);
   const newPasswordMatches = form.confirmPassword && form.newPassword === form.confirmPassword;
 
@@ -647,6 +752,31 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
     } catch (error) {
       setMessage(error.message);
     }
+  }
+
+  async function sendPhoneEnrollment() {
+    setMessage("");
+    try {
+      const data = await parseJson(await fetch(`${API_URL}/api/auth/phone/send-enrollment`, {
+        method: "POST", headers: { "Content-Type": "application/json", ...authHeaders(token) }, body: JSON.stringify({ phoneNumber })
+      }));
+      setPhoneEnrollment(data);
+      setMessage(`SMS code sent to ${data.phoneNumber}.`);
+    } catch (error) { setMessage(error.message); }
+  }
+
+  async function confirmPhoneEnrollment(event) {
+    event.preventDefault();
+    try {
+      const data = await parseJson(await fetch(`${API_URL}/api/auth/phone/confirm-enrollment`, {
+        method: "POST", headers: { "Content-Type": "application/json", ...authHeaders(token) },
+        body: JSON.stringify({ enrollmentToken: phoneEnrollment.enrollmentToken, code: phoneCode })
+      }));
+      onUserUpdated(data.user);
+      setPhoneEnrollment(null);
+      setPhoneCode("");
+      setMessage(data.message);
+    } catch (error) { setMessage(error.message); }
   }
 
   const successCount = logs.filter((log) => log.status === "SUCCESS").length;
@@ -769,6 +899,21 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
           </div>
           <p className="contactEmail">{isAdmin ? "support@arff-analyzer.local" : user.email}</p>
 
+          {!isAdmin && (
+            <div className="twoFactorReset">
+              <p>{user.phoneMfaEnabled ? `SMS two-step authentication enabled for ${user.phoneNumber}.` : "Add a phone number to enable SMS two-step authentication."}</p>
+              {!phoneEnrollment ? <>
+                <label className="field"><span>Phone number</span><input placeholder="+919876543210" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} /></label>
+                <button type="button" onClick={sendPhoneEnrollment}>Send SMS Code</button>
+              </> : (
+                <form onSubmit={confirmPhoneEnrollment} className="twoFactorReset">
+                  <label className="field"><span>SMS code</span><input inputMode="numeric" maxLength="6" value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} /></label>
+                  <button type="submit">Verify Phone & Enable SMS 2FA</button>
+                </form>
+              )}
+            </div>
+          )}
+
           {setup && (
             <form className="twoFactorReset" onSubmit={verifyResetTwoFactor}>
               <div className="qrBox">
@@ -790,15 +935,20 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
       )}
 
       {showActivity && (
+      <DatasetHistory token={token} isAdmin={isAdmin} />
+      )}
+
+      {showActivity && (
       <div className="activitySection">
         <div className="sectionTitle">
           <Activity size={22} />
           <h2>Activity Logs</h2>
         </div>
         <div className="logTable">
-          <div className="logHead">
+          <div className={`logHead ${isAdmin ? "adminLog" : ""}`}>
             <span>Status</span>
             <span>Action</span>
+            {isAdmin && <span>User</span>}
             <span>IP</span>
             <span>Time</span>
           </div>
@@ -808,9 +958,10 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
             <p className="empty">No activity yet.</p>
           ) : (
             logs.map((log) => (
-              <div className="logRow" key={log.id}>
+              <div className={`logRow ${isAdmin ? "adminLog" : ""}`} key={log.id}>
                 <span className={log.status === "SUCCESS" ? "ok" : "bad"}>{log.status}</span>
                 <span>{log.action}</span>
+                {isAdmin && <span>{log.user ? `${log.user.name || log.user.email} (${log.user.id})` : "System / unknown"}</span>}
                 <span>{log.ipAddress || "Unknown"}</span>
                 <span>{new Date(log.createdAt).toLocaleString()}</span>
               </div>
