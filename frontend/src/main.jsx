@@ -19,6 +19,8 @@ import {
   Users,
   XCircle
 } from "lucide-react";
+import AnalysisResult from "./components/AnalysisResult.jsx";
+import { logClientError } from "./utils/errorLogger.js";
 import "./styles.css";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
@@ -537,6 +539,7 @@ function UserAuthPage({ mode, onAuthenticated }) {
 function UploadWorkspace({ token, user, onLogout }) {
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
 
@@ -547,6 +550,7 @@ function UploadWorkspace({ token, user, onLogout }) {
 
   async function submitUpload(event) {
     event.preventDefault();
+    setAnalysisResult(null);
     if (!file) {
       setResult({ valid: false, error: "Please select a file first." });
       return;
@@ -564,10 +568,29 @@ function UploadWorkspace({ token, user, onLogout }) {
         headers: authHeaders(token),
         body
       });
-      const data = await response.json();
-      setResult(data);
+      const data = await response.json().catch(() => ({}));
+      const hasAnalysis = Boolean(data.summary && data.attributes && data.missingValues);
+
+      if (response.ok) {
+        setAnalysisResult(data);
+        setResult({ valid: true, message: data.message || "File uploaded and analyzed successfully." });
+      } else {
+        setAnalysisResult(hasAnalysis ? data : null);
+        const message = response.status >= 500
+          ? "The server could not process the upload. Please try again later."
+          : data.error || "The uploaded file could not be analyzed.";
+        logClientError({
+          stage: "upload",
+          code: data.errors?.[0]?.code || `HTTP_${response.status}`,
+          message,
+          context: { status: response.status }
+        });
+        setResult({ valid: false, error: message });
+      }
       setHistoryVersion((value) => value + 1);
     } catch {
+      setAnalysisResult(null);
+      logClientError({ stage: "upload", code: "UPLOAD_NETWORK_ERROR", message: "Unable to reach the upload server." });
       setResult({ valid: false, error: "Unable to reach the upload server." });
     } finally {
       setLoading(false);
@@ -600,7 +623,15 @@ function UploadWorkspace({ token, user, onLogout }) {
           </div>
 
           <label className="dropzone">
-            <input type="file" accept=".arff" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+            <input
+              type="file"
+              accept=".arff"
+              onChange={(event) => {
+                setFile(event.target.files?.[0] || null);
+                setAnalysisResult(null);
+                setResult(null);
+              }}
+            />
             <span>Choose file</span>
             <strong>{file ? file.name : "No file selected"}</strong>
           </label>
@@ -628,6 +659,8 @@ function UploadWorkspace({ token, user, onLogout }) {
             </div>
           )}
         </form>
+
+        <AnalysisResult result={analysisResult} />
 
       </div>
       <DatasetHistory token={token} refreshKey={historyVersion} />

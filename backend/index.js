@@ -81,7 +81,9 @@ app.use((error, req, res, _next) => {
 
   if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
     logActivity(req, "ARFF_UPLOAD_VALIDATION", "FAILURE", {
-      reason: "File exceeded 10 MB limit"
+      stage: "upload",
+      code: "FILE_TOO_LARGE",
+      message: "File exceeded 10 MB limit"
     });
     return res.status(413).json({
       valid: false,
@@ -90,6 +92,11 @@ app.use((error, req, res, _next) => {
   }
 
   console.error(error);
+  logActivity(req, "ARFF_UPLOAD_ANALYSIS", "FAILURE", {
+    stage: "server",
+    code: error.code || "UNEXPECTED_SERVER_ERROR",
+    message: error.message || "Unexpected server error."
+  });
   return res.status(500).json({
     valid: false,
     error: "Unexpected server error."
