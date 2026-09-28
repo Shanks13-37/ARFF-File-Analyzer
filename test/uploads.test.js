@@ -79,6 +79,13 @@ test("rejects files over 10 MB", async () => {
   assert.equal(response.body.errors[0].code, "FILE_TOO_LARGE");
 });
 
+test("rejects empty ARFF files with a clear error", async () => {
+  const { response } = await uploadFile("empty.arff", "   \n\t");
+  assert.equal(response.statusCode, 422);
+  assert.equal(response.body.errors[0].code, "EMPTY_FILE");
+  assert.equal(response.body.error, "The uploaded ARFF file is empty.");
+});
+
 test("returns structured missing relation errors", async () => {
   const { response } = await uploadFile("missing-relation.arff", "@attribute a numeric\n@data\n1");
   assert.equal(response.statusCode, 422);

@@ -521,14 +521,10 @@ function UserAuthPage({ mode, onAuthenticated }) {
           <div className="heroIcon">
             <FileUp size={42} />
           </div>
-          <h1>{mode === "register" ? "Register to Analyze ARFF Files" : "Welcome Back"}</h1>
-          <p className="projectByline">Account access workspace</p>
-          <p>Use the same login page for user and admin accounts. The app routes you based on your stored role.</p>
-          <div className="landingHighlights">
-            <span>Role based routing</span>
-            <span>ARFF validation</span>
-            <span>Admin 2FA when needed</span>
-          </div>
+          <h1>{mode === "register" ? "Register to Analyze ARFF Files" : "ARFF File Analyzer"}</h1>
+          <p className="projectByline">IT-303 Software Engineering Course Project</p>
+          <p>Analyze and validate ARFF datasets with confidence. Upload files, review data quality and statistics, and securely manage results through role-based user and administrator access.</p>
+          
         </div>
         <AuthPanel mode={mode} onAuthenticated={onAuthenticated} />
       </div>
@@ -1053,6 +1049,9 @@ function App() {
   }
 
   function logout() {
+    const confirmed = window.confirm("Are you sure you want to log out?");
+    if (!confirmed) return;
+
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);

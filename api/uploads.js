@@ -75,6 +75,27 @@ export function createUploadHandler({ prismaClient = prisma, activityLogger = lo
       return res.status(413).json({ valid: false, file: fileDescriptor(file), error: error.message, errors: [error] });
     }
 
+    if (file.buffer.toString("utf8").trim().length === 0) {
+      const error = structuredFileError("EMPTY_FILE", "The uploaded ARFF file is empty.");
+      let dataset;
+      try {
+        dataset = await prismaClient.dataset.create({
+          data: {
+            userId,
+            originalName: file.originalname,
+            fileSize: file.size,
+            valid: false,
+            errors: [error.message]
+          }
+        });
+      } catch (storageError) {
+        console.error(storageError);
+        return res.status(503).json({ valid: false, error: "Upload storage is unavailable. Check the database connection." });
+      }
+      await activityLogger(req, "ARFF_UPLOAD_VALIDATION", "FAILURE", { stage: "upload", code: error.code, message: error.message }, userId);
+      return res.status(422).json({ valid: false, datasetId: dataset.id, file: fileDescriptor(file), error: error.message, errors: [error] });
+    }
+
     let parsed;
     let analysis;
     try {

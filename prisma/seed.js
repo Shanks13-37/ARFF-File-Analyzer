@@ -1,7 +1,9 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import prismaPackage from "@prisma/client";
 import { isStrongPassword, PASSWORD_REQUIREMENTS } from "../backend/utils/password.js";
+
+const { PrismaClient } = prismaPackage;
 
 const prisma = new PrismaClient();
 

@@ -1,4 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+import prismaPackage from "@prisma/client";
+
+const { PrismaClient } = prismaPackage;
 
 const databaseUrl = process.env.DATABASE_URL || "";
 const placeholderValues = new Set(["user", "password", "host", "real_user", "real_password", "real_host"]);

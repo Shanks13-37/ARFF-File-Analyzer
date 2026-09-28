@@ -437,6 +437,26 @@ main {
   color: #1e3a8a;
 }
 
+.recordPagination {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.recordPagination span {
+  color: #64748b;
+  font-size: 0.84rem;
+  font-weight: 700;
+  min-width: 92px;
+  text-align: center;
+}
+
+.recordPagination button {
+  min-height: 38px;
+  padding: 0 14px;
+}
+
 .analysisFilters .analysisCallout {
   margin-top: 5px;
 }
