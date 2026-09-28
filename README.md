@@ -157,6 +157,26 @@ Use a long, random `JWT_SECRET` in real deployments.
 
 ## Local Setup
 
+### Docker Compose
+
+Docker Compose can run PostgreSQL, the API, and the built frontend together:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:4000`. The app container waits for PostgreSQL, pushes the Prisma schema, seeds the admin account, and starts the Express server. Set `JWT_SECRET`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` in `.env` to override the Compose defaults.
+
+Stop the services with:
+
+```bash
+docker compose down
+```
+
+The PostgreSQL data is kept in the `postgres_data` Docker volume.
+
+### Manual Node.js Setup
+
 Install dependencies:
 
 ```bash

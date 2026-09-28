@@ -17,5 +17,27 @@ services:
       timeout: 5s
       retries: 10
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arff-file-analyzer-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://arff_user:arff_password@postgres:5432/arff_analyzer?schema=public
+      FRONTEND_ORIGIN: http://localhost:4000
+      JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-secret}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe123!}
+      PORT: 4000
+      VITE_API_URL: ""
+    ports:
+      - "4000:4000"
+    command: ["sh", "-c", "npx prisma db push && npm run db:seed && npm start"]
+
 volumes:
   postgres_data:
