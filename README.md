@@ -8,7 +8,7 @@ ARFF File Analyzer is a React, Express, and Prisma application for **Module 1.0:
 - Duplicate email protection during registration
 - Single login page for both users and admins
 - JWT-based authentication
-- Admin two-step authentication setup with an authenticator app
+- Mandatory authenticator app two-step authentication for all accounts
 - Role-based authorization for user and admin pages
 - ARFF file upload validation
 - 10 MB upload size limit
@@ -21,8 +21,8 @@ ARFF File Analyzer is a React, Express, and Prisma application for **Module 1.0:
 
 The application uses one `User` model with a `role` field.
 
-- `USER`: created through the public registration page. Users can log in and upload ARFF files.
-- `ADMIN`: created through the seed script. Admins log in through the same `/login` page, complete two-step authentication when required, and are routed to the admin dashboard.
+- `USER`: created through the public registration page. Users must finish authenticator setup before using the app and provide a code at each login.
+- `ADMIN`: created through the seed script. Admins use the same `/login` page and must finish authenticator setup before accessing the admin dashboard.
 
 Public registration always creates a `USER`. Admin accounts should be created only through the seed script or direct database administration.
 
@@ -32,11 +32,10 @@ Email addresses are normalized to lowercase during registration and login. The d
 
 ### User Flow
 
-1. Open `/register`.
-2. Create an account with your details.
-3. After registration, the app redirects to `/`.
+1. Open `/register` and create an account with your details.
+2. Scan the authenticator setup QR code with a TOTP app and enter its current 6-digit code.
+3. After setup is confirmed, the app signs you in and opens `/`.
 4. Upload a `.arff` file from the user upload workspace.
-5. The backend validates the file extension and stores the result.
 
 Existing users can go directly to `/login`.
 
@@ -46,7 +45,7 @@ Existing users can go directly to `/login`.
 2. Open `/login`.
 3. Log in with the seeded admin email and password.
 4. The backend detects that the account role is `ADMIN`.
-5. On first admin login, scan the QR code with an authenticator app.
+5. If the admin has not configured 2FA, scan the setup QR code with an authenticator app.
 6. Enter the 6-digit authenticator code.
 7. After verification, the app redirects to `/admin`.
 
@@ -73,9 +72,10 @@ The admin dashboard is separate from the user upload page. It shows admin securi
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/api/auth/register` | Public | Create a normal user account. |
-| `POST` | `/api/auth/login` | Public | Log in as a user or admin. Admins are detected by role and may be asked for a 2FA code. |
-| `POST` | `/api/auth/2fa/enable` | Setup session | Verify and enable admin two-step authentication. |
+| `POST` | `/api/auth/register` | Public | Create a user account and begin required authenticator setup. |
+| `POST` | `/api/auth/login` | Public | Verify password, then require authenticator setup or issue a second-step challenge. |
+| `POST` | `/api/auth/2fa/enable` | Short-lived setup session | Verify the setup code and finish account enrollment. |
+| `POST` | `/api/auth/2fa/verify-login` | Short-lived challenge | Complete login with an authenticator code. |
 | `GET` | `/api/auth/me` | Authenticated | Return the current signed-in user. |
 
 ### User Uploads
@@ -299,19 +299,18 @@ Role guards:
 
 The upload endpoint requires the `USER` role. Users can retrieve only their own dataset history and activity logs; administrators can retrieve all records with their owner identity. Admin settings require the `ADMIN` role.
 
-## Admin Two-Step Authentication
+## Authenticator App Two-Step Authentication
 
-The first successful admin password login through `/login` starts two-step authentication setup.
+Two-step authentication is mandatory for admins and regular users. New users configure it during registration. Existing accounts without a configured authenticator are prompted to enroll after password verification at their next login. Compatible apps include Google Authenticator and other TOTP clients.
 
-The API returns:
+The setup flow returns:
 
-- `setupToken`
-- `qrCode`
-- `manualKey`
+- a short-lived `setupToken`
+- a QR code and manual setup key
 
-The admin scans the QR code with an authenticator app and submits the 6-digit code. After verification, two-step authentication is enabled for that admin account.
+After setup, a 6-digit time-based code is required after the account password at each login. Authenticated API requests also require a token issued after successful authenticator verification.
 
-Admins can reset two-step authentication from the admin dashboard by entering the current password and verifying a new code.
+Admins can reset their authenticator setup from Admin Settings; they must complete setup again before their next login. Users cannot disable mandatory two-step authentication. Authenticator challenges and setup attempts are rate limited.
 
 ## Upload Validation Behavior
 

@@ -25,6 +25,9 @@ export function requireAuth(req, res, next) {
 
   try {
     req.user = verifyToken(token);
+    if (req.user.mfa !== true) {
+      return res.status(401).json({ error: "Authenticator verification is required. Sign in again." });
+    }
     return next();
   } catch {
     return res.status(401).json({ error: "Invalid or expired authorization token." });

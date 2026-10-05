@@ -214,11 +214,10 @@ function BackgroundEffects() {
 
 function AuthPanel({ mode, onAuthenticated }) {
   const isRegister = mode === "register";
-  const [form, setForm] = useState({ name: "", email: "", organization: "", phoneNumber: "", password: "", confirmPassword: "" });
+  const [form, setForm] = useState({ name: "", email: "", organization: "", password: "", confirmPassword: "" });
   const [setup, setSetup] = useState(null);
   const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
-  const [phoneChallenge, setPhoneChallenge] = useState(null);
-  const [phoneEnrollment, setPhoneEnrollment] = useState(null);
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const showPasswordFeedback = isRegister && !setup && (form.password || form.confirmPassword);
@@ -275,18 +274,7 @@ function AuthPanel({ mode, onAuthenticated }) {
 
       if (data.requiresTwoFactor) {
         setRequiresTwoFactor(true);
-        setMessage(data.message);
-        return;
-      }
-
-      if (data.requiresPhoneVerification) {
-        setPhoneChallenge(data);
-        setMessage("Enter the code sent to your phone.");
-        return;
-      }
-
-      if (data.phoneEnrollmentRequired) {
-        setPhoneEnrollment(data);
+        setTwoFactorChallenge(data);
         setMessage(data.message);
         return;
       }
@@ -299,15 +287,15 @@ function AuthPanel({ mode, onAuthenticated }) {
     }
   }
 
-  async function submitPhoneLogin(event) {
+  async function submitTwoFactor(event) {
     event.preventDefault();
     setLoading(true);
     setMessage("");
     try {
-      const data = await parseJson(await fetch(`${API_URL}/api/auth/phone/verify-login`, {
+      const data = await parseJson(await fetch(`${API_URL}/api/auth/2fa/verify-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneChallengeToken: phoneChallenge.phoneChallengeToken, code: form.token })
+        body: JSON.stringify({ challengeToken: twoFactorChallenge.challengeToken, token: form.token })
       }));
       onAuthenticated(data.token, data.user);
     } catch (error) {
@@ -315,19 +303,6 @@ function AuthPanel({ mode, onAuthenticated }) {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function submitPhoneEnrollment(event) {
-    event.preventDefault();
-    setLoading(true);
-    setMessage("");
-    try {
-      const data = await parseJson(await fetch(`${API_URL}/api/auth/phone/confirm-enrollment`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enrollmentToken: phoneEnrollment.enrollmentToken, code: form.token })
-      }));
-      onAuthenticated(data.token, data.user);
-    } catch (error) { setMessage(error.message); } finally { setLoading(false); }
   }
 
   async function submitSetup(event) {
@@ -352,16 +327,16 @@ function AuthPanel({ mode, onAuthenticated }) {
   }
 
   return (
-    <form className="authPanel" onSubmit={phoneEnrollment ? submitPhoneEnrollment : phoneChallenge ? submitPhoneLogin : setup ? submitSetup : submit}>
+    <form className="authPanel" onSubmit={twoFactorChallenge ? submitTwoFactor : setup ? submitSetup : submit}>
       <div className="panelHeader">
         {isRegister ? <UserPlus size={22} /> : <LogIn size={22} />}
         <div>
-          <h2>{phoneEnrollment || phoneChallenge ? "Verify Your Phone" : setup ? "Enable Two-Step Authentication" : isRegister ? "Create Account" : "Login"}</h2>
+          <h2>{setup ? "Set Up Required Two-Step Authentication" : twoFactorChallenge ? "Authenticator Verification" : isRegister ? "Create Account" : "Login"}</h2>
           <p>
-            {phoneEnrollment || phoneChallenge
-              ? `Enter the 6-digit SMS code sent to ${(phoneEnrollment || phoneChallenge).phoneNumber}.`
-              : setup
-              ? "Scan the QR code, then enter the 6-digit code."
+            {setup
+              ? "Two-step authentication is required for every account. Scan the QR code and verify a current code to continue."
+              : twoFactorChallenge
+                ? "Enter the current 6-digit code from your authenticator app."
               : isRegister
                 ? "Register with your details before uploading datasets."
                 : "Sign in with your email and password."}
@@ -382,7 +357,7 @@ function AuthPanel({ mode, onAuthenticated }) {
         </>
       )}
 
-      {!setup && !phoneChallenge && !phoneEnrollment && (
+      {!setup && !twoFactorChallenge && (
         <>
           <label className="field">
             <span>Email</span>
@@ -394,10 +369,6 @@ function AuthPanel({ mode, onAuthenticated }) {
           </label>
           {isRegister && (
             <>
-              <label className="field">
-                <span>Phone number</span>
-                <input placeholder="+919876543210" value={form.phoneNumber} onChange={(event) => updateField("phoneNumber", event.target.value)} />
-              </label>
               {showPasswordFeedback && (
                 <PasswordFeedback password={form.password} confirmPassword={form.confirmPassword} matchLabel="Passwords match" />
               )}
@@ -414,10 +385,10 @@ function AuthPanel({ mode, onAuthenticated }) {
         </>
       )}
 
-      {(requiresTwoFactor || setup || phoneChallenge || phoneEnrollment) && (
+      {(requiresTwoFactor || setup) && (
         <label className="field">
-          <span>{phoneChallenge || phoneEnrollment ? "SMS code" : "Authenticator code"}</span>
-          <input inputMode="numeric" maxLength="6" value={form.token || ""} onChange={(event) => updateField("token", event.target.value)} />
+          <span>Authenticator code</span>
+          <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength="6" value={form.token || ""} onChange={(event) => updateField("token", event.target.value)} />
         </label>
       )}
 
@@ -432,10 +403,10 @@ function AuthPanel({ mode, onAuthenticated }) {
 
       <button type="submit" disabled={loading}>
         {isRegister ? <UserPlus size={18} /> : <ShieldCheck size={18} />}
-        {loading ? "Please wait..." : phoneChallenge || phoneEnrollment || setup ? "Verify & Continue" : isRegister ? "Register & Continue" : "Login"}
+        {loading ? "Please wait..." : twoFactorChallenge ? "Verify & Login" : setup ? "Enable & Continue" : isRegister ? "Register & Set Up 2FA" : "Login"}
       </button>
 
-      {!setup && !phoneChallenge && !phoneEnrollment && (
+      {!setup && !twoFactorChallenge && (
         <div className="authSwitch">
           {isRegister ? (
             <>
@@ -522,12 +493,26 @@ function UserAuthPage({ mode, onAuthenticated }) {
             <FileUp size={42} />
           </div>
           <h1>{mode === "register" ? "Register to Analyze ARFF Files" : "ARFF File Analyzer"}</h1>
-          <p className="projectByline">IT-303 Software Engineering Course Project</p>
-          <p>Analyze and validate ARFF datasets with confidence. Upload files, review data quality and statistics, and securely manage results through role-based user and administrator access.</p>
-          
+          <p className="projectByline">IT-303 Software Engineering Course Project (Group - 3)</p>
+          <div className="projectCredits">
+            <div>
+              <h2>Project members</h2>
+              <ul>
+                <li>Shraddha Kovalli <span>241IT074</span></li>
+                <li>Arnav Miranda <span>241IT013</span></li>
+                <li>Sadhana Mohanraj <span>241IT066</span></li>
+              </ul>
+            </div>
+            <div className="courseInstructor">
+              <h2>Course instructor</h2>
+              <p>Prof. Jaidhar C. D.</p>
+            </div>
+            <p className="projectDescription">Analyze and validate ARFF datasets with confidence. Upload files, review data quality and statistics, and securely manage results through role-based user and administrator access.</p>
+          </div>
         </div>
         <AuthPanel mode={mode} onAuthenticated={onAuthenticated} />
       </div>
+      <footer className="loginCopyright">© 2026 ARFF File Analyzer</footer>
     </section>
   );
 }
@@ -672,9 +657,6 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
   const [message, setMessage] = useState("");
   const [setup, setSetup] = useState(null);
   const [setupCode, setSetupCode] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [phoneEnrollment, setPhoneEnrollment] = useState(null);
-  const [phoneCode, setPhoneCode] = useState("");
   const showPasswordFeedback = Boolean(form.newPassword || form.confirmPassword);
   const newPasswordMatches = form.confirmPassword && form.newPassword === form.confirmPassword;
 
@@ -777,35 +759,10 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
       onUserUpdated(data.user, data.token);
       setSetup(null);
       setSetupCode("");
-      setMessage("Two-step authentication was updated.");
+      setMessage("Authenticator two-step authentication is enabled.");
     } catch (error) {
       setMessage(error.message);
     }
-  }
-
-  async function sendPhoneEnrollment() {
-    setMessage("");
-    try {
-      const data = await parseJson(await fetch(`${API_URL}/api/auth/phone/send-enrollment`, {
-        method: "POST", headers: { "Content-Type": "application/json", ...authHeaders(token) }, body: JSON.stringify({ phoneNumber })
-      }));
-      setPhoneEnrollment(data);
-      setMessage(`SMS code sent to ${data.phoneNumber}.`);
-    } catch (error) { setMessage(error.message); }
-  }
-
-  async function confirmPhoneEnrollment(event) {
-    event.preventDefault();
-    try {
-      const data = await parseJson(await fetch(`${API_URL}/api/auth/phone/confirm-enrollment`, {
-        method: "POST", headers: { "Content-Type": "application/json", ...authHeaders(token) },
-        body: JSON.stringify({ enrollmentToken: phoneEnrollment.enrollmentToken, code: phoneCode })
-      }));
-      onUserUpdated(data.user);
-      setPhoneEnrollment(null);
-      setPhoneCode("");
-      setMessage(data.message);
-    } catch (error) { setMessage(error.message); }
   }
 
   const successCount = logs.filter((log) => log.status === "SUCCESS").length;
@@ -930,16 +887,7 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
 
           {!isAdmin && (
             <div className="twoFactorReset">
-              <p>{user.phoneMfaEnabled ? `SMS two-step authentication enabled for ${user.phoneNumber}.` : "Add a phone number to enable SMS two-step authentication."}</p>
-              {!phoneEnrollment ? <>
-                <label className="field"><span>Phone number</span><input placeholder="+919876543210" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} /></label>
-                <button type="button" onClick={sendPhoneEnrollment}>Send SMS Code</button>
-              </> : (
-                <form onSubmit={confirmPhoneEnrollment} className="twoFactorReset">
-                  <label className="field"><span>SMS code</span><input inputMode="numeric" maxLength="6" value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} /></label>
-                  <button type="submit">Verify Phone & Enable SMS 2FA</button>
-                </form>
-              )}
+              <p>Authenticator app two-step authentication is mandatory for all accounts. This account is protected by an authenticator app.</p>
             </div>
           )}
 

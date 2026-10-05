@@ -17,6 +17,7 @@ model User {
   name             String?
   email            String        @unique
   organization     String?
+  // Legacy fields retained to preserve existing account data after SMS MFA removal.
   phoneNumber      String?       @unique
   phoneVerifiedAt  DateTime?
   phoneMfaEnabled  Boolean       @default(false)

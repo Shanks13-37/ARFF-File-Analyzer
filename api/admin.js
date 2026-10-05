@@ -1,32 +1,9 @@
 import bcrypt from "bcryptjs";
-import QRCode from "qrcode";
-import speakeasy from "speakeasy";
 import { prisma } from "../backend/db.js";
-import { requireAdmin, signToken } from "../backend/utils/auth.js";
+import { requireAdmin } from "../backend/utils/auth.js";
 import { logActivity } from "../backend/utils/activity.js";
 import { isStrongPassword, PASSWORD_REQUIREMENTS } from "../backend/utils/password.js";
-
-async function createTwoFactorSetup(user) {
-  const secret = speakeasy.generateSecret({
-    name: `ARFF File Analyzer (${user.email})`,
-    issuer: "ARFF File Analyzer",
-    length: 20
-  });
-  const setupToken = signToken(
-    {
-      purpose: "setup_2fa",
-      sub: user.id,
-      secret: secret.base32
-    },
-    "10m"
-  );
-
-  return {
-    setupToken,
-    qrCode: await QRCode.toDataURL(secret.otpauth_url),
-    manualKey: secret.base32
-  };
-}
+import { createTotpSetup } from "../backend/utils/totp.js";
 
 export function registerAdminRoutes(app) {
   app.patch("/api/admin/login-details", requireAdmin, async (req, res) => {
@@ -83,7 +60,7 @@ export function registerAdminRoutes(app) {
 
       if (resetTwoFactor) {
         response.setupRequired = true;
-        Object.assign(response, await createTwoFactorSetup(updated));
+        Object.assign(response, await createTotpSetup(updated));
       }
 
       return res.json(response);

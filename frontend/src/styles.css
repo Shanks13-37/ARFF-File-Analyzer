@@ -189,6 +189,67 @@ main {
   margin-left: 0;
 }
 
+.projectCredits {
+  color: #475569;
+  display: grid;
+  gap: 18px 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-top: 28px;
+}
+
+.projectCredits h2 {
+  color: #1e3a8a;
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+.projectCredits ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.projectCredits li {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+.projectCredits li span {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.projectCredits .courseInstructor p {
+  margin: 0;
+}
+
+.projectCredits .projectDescription {
+  grid-column: 1 / -1;
+  margin: 0;
+  max-width: 600px;
+}
+
+.loginCopyright {
+  background: transparent;
+  border: 0;
+  bottom: 18px;
+  box-shadow: none;
+  color: #64748b;
+  display: block;
+  font-size: 0.76rem;
+  left: clamp(18px, 4vw, 48px);
+  padding: 0;
+  position: absolute;
+  z-index: 1;
+}
+
 .landingHighlights {
   display: flex;
   flex-wrap: wrap;
@@ -1251,6 +1312,15 @@ footer {
   .landingCopy h1,
   .landingCopy p {
     margin-left: auto;
+  }
+
+  .projectCredits {
+    grid-template-columns: 1fr 1fr;
+    text-align: left;
+  }
+
+  .loginCopyright {
+    left: 18px;
   }
 
   .landingHighlights {
