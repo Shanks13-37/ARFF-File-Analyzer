@@ -64,3 +64,20 @@ test("preserves original record indices", () => {
   assert.equal(result.records[0].index, 12);
   assert.equal(result.records[0].values[0], "30");
 });
+
+test("supports integer and real numeric filters and rejects reversed ranges", () => {
+  assert.deepEqual(filterRecords(records, { index: 0, type: "integer" }, { mode: "exact", value: "30" }).records.map((r) => r.index), [12]);
+  assert.deepEqual(filterRecords(records, { index: 0, type: "real" }, { mode: "range", min: "21", max: "30" }).records.map((r) => r.index), [11, 12]);
+  assert.match(filterRecords(records, numeric, { mode: "range", min: "30", max: "18" }).error, /minimum cannot be greater/i);
+});
+
+test("rejects invalid bounds and handles absent records", () => {
+  assert.match(filterRecords(records, numeric, { mode: "range", min: "x" }).error, /minimum must be a valid number/i);
+  assert.deepEqual(filterRecords(null, numeric, { mode: "exact", value: "18" }).records, []);
+  assert.deepEqual(filterRecords(records, { index: 20, type: "numeric" }, { mode: "exact", value: "1" }).records, []);
+});
+
+test("nominal and date matching is exact while unknown types remain unchanged", () => {
+  assert.deepEqual(filterRecords(records, date, { value: "2026-09-06" }).records.map((r) => r.index), [10]);
+  assert.deepEqual(filterRecords(records, { index: 1, type: "other" }, { value: "yes" }).records, records);
+});

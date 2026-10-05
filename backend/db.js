@@ -21,4 +21,21 @@ if (!databaseUrl || hasPlaceholderDatabaseUrl(databaseUrl)) {
   throw new Error("DATABASE_URL is missing or still contains placeholder values. Set it to a real PostgreSQL connection string.");
 }
 
-export const prisma = new PrismaClient();
+let prismaInstance;
+
+export function getPrismaClient() {
+  if (!prismaInstance) prismaInstance = new PrismaClient();
+  return prismaInstance;
+}
+
+export function setPrismaClient(client) {
+  prismaInstance = client;
+}
+
+export const prisma = new Proxy({}, {
+  get(_target, property) {
+    const client = getPrismaClient();
+    const value = client[property];
+    return typeof value === "function" ? value.bind(client) : value;
+  }
+});

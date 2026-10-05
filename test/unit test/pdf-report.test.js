@@ -51,3 +51,17 @@ test("empty and long attribute lists do not crash PDF creation", () => {
   const longPdf = createAnalysisPdf(long, "now");
   assert.ok(longPdf.doc.output("arraybuffer").byteLength > 0);
 });
+
+test("normalizes sparse analysis results and supplies safe defaults", () => {
+  const result = buildPdfReportData({}, "fixed");
+  assert.equal(result.generatedAt, "fixed");
+  assert.deepEqual(result.file, { name: "Unknown", size: 0, relation: "Unknown" });
+  assert.deepEqual(result.summary, { instanceCount: 0, attributeCount: 0, missingValueCount: 0, duplicateRecordCount: 0 });
+  assert.deepEqual(result.attributes, []);
+  assert.equal(result.typeViolations.length, 0);
+});
+
+test("sanitizes empty and punctuation-only relation names", () => {
+  assert.equal(getPdfFilename("///"), "arff-analysis-report.pdf");
+  assert.equal(getPdfFilename("  sales & data  "), "sales-data-analysis-report.pdf");
+});
