@@ -87,4 +87,28 @@ test("HTTP API registration, 2FA enrollment, profile, and ARFF upload work toget
   assert.equal(database.datasets.length, 1);
   assert.equal(database.datasets[0].userId, user.id);
   assert.ok(database.activityLogs.some((log) => log.action === "USER_2FA_ENABLED"));
+
+  const resetCode = speakeasy.totp({ secret: setupPayload.secret, encoding: "base32" });
+  const resetVerificationResponse = await fetch(`${base}/api/auth/password-reset/verify-totp`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: user.email, token: resetCode })
+  });
+  assert.equal(resetVerificationResponse.status, 200);
+  const resetChallenge = await resetVerificationResponse.json();
+
+  const resetResponse = await fetch(`${base}/api/auth/password-reset/complete`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ resetToken: resetChallenge.resetToken, newPassword: "NewStrongPass2!", confirmPassword: "NewStrongPass2!" })
+  });
+  assert.equal(resetResponse.status, 200);
+  const resetResult = await resetResponse.json();
+  assert.equal(resetResult.user.email, user.email);
+  assert.equal(await bcrypt.compare("NewStrongPass2!", user.passwordHash), true);
+
+  const resetProfileResponse = await fetch(`${base}/api/auth/me`, { headers: { authorization: `Bearer ${resetResult.token}` } });
+  assert.equal(resetProfileResponse.status, 200);
+  const oldSessionResponse = await fetch(`${base}/api/auth/me`, { headers: { authorization: `Bearer ${enrolled.token}` } });
+  assert.equal(oldSessionResponse.status, 401);
 });

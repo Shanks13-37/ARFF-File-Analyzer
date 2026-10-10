@@ -407,7 +407,7 @@ function AuthPanel({ mode, onAuthenticated }) {
       </button>
 
       {!setup && !twoFactorChallenge && (
-        <div className="authSwitch">
+        <div className={`authSwitch${isRegister ? "" : " authSwitchStack"}`}>
           {isRegister ? (
             <>
               <span>Already have an account?</span>
@@ -424,17 +424,23 @@ function AuthPanel({ mode, onAuthenticated }) {
             </>
           ) : (
             <>
-              <span>New user?</span>
-              <button
-                className="linkButton"
-                type="button"
-                onClick={() => {
-                  setMessage("");
-                  navigate("/register");
-                }}
-              >
-                Create account
-              </button>
+              <div className="authSwitchLine">
+                <span>Forgot password?</span>
+                <button className="linkButton" type="button" onClick={() => navigate("/forgot-password")}>Reset it</button>
+              </div>
+              <div className="authSwitchLine">
+                <span>New user?</span>
+                <button
+                  className="linkButton"
+                  type="button"
+                  onClick={() => {
+                    setMessage("");
+                    navigate("/register");
+                  }}
+                >
+                  Create account
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -511,6 +517,119 @@ function UserAuthPage({ mode, onAuthenticated }) {
           </div>
         </div>
         <AuthPanel mode={mode} onAuthenticated={onAuthenticated} />
+      </div>
+      <footer className="loginCopyright">© 2026 ARFF File Analyzer</footer>
+    </section>
+  );
+}
+
+function ForgotPasswordPage({ onAuthenticated }) {
+  const [step, setStep] = useState("email");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function verifyAuthenticator(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage("");
+    try {
+      const data = await parseJson(await fetch(`${API_URL}/api/auth/password-reset/verify-totp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, token: code })
+      }));
+      setResetToken(data.resetToken);
+      setStep("password");
+      setMessage(data.message);
+    } catch (error) { setMessage(error.message); }
+    finally { setLoading(false); }
+  }
+
+  async function resetPassword(event) {
+    event.preventDefault();
+    setMessage("");
+    if (!isStrongPassword(newPassword)) {
+      setMessage(PASSWORD_REQUIREMENTS);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setMessage("Password and confirm password must match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await parseJson(await fetch(`${API_URL}/api/auth/password-reset/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetToken, newPassword, confirmPassword })
+      }));
+      onAuthenticated(data.token, data.user);
+    } catch (error) { setMessage(error.message); }
+    finally { setLoading(false); }
+  }
+
+  const stepTitle = step === "email" ? "Find Your Account" : step === "code" ? "Authenticator Verification" : "Choose a New Password";
+  return (
+    <section className="hero loginHero">
+      <BackgroundEffects />
+      <Header activePage="login" />
+      <div className="recoveryPage">
+        <form className="authPanel" onSubmit={step === "code" ? verifyAuthenticator : step === "password" ? resetPassword : (event) => {
+          event.preventDefault();
+          if (!isValidEmail(email)) return setMessage("Enter a valid email address.");
+          setMessage("");
+          setStep("code");
+        }}>
+          <div className="panelHeader">
+            <ShieldCheck size={22} />
+            <div>
+              <h2>{stepTitle}</h2>
+              <p>{step === "email" ? "Enter your account email to begin password recovery." : step === "code" ? "Enter the current 6-digit code from the authenticator app linked to this account." : "Choose a new strong password. You’ll be signed in after it’s saved."}</p>
+            </div>
+          </div>
+
+          {step === "email" && <label className="field">
+            <span>Email</span>
+            <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
+          </label>}
+          {step === "code" && <>
+            <label className="field">
+              <span>Account email</span>
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            </label>
+            <label className="field">
+              <span>6-digit authenticator code</span>
+              <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength="6" value={code} onChange={(event) => setCode(event.target.value)} required />
+            </label>
+          </>}
+          {step === "password" && <>
+            <label className="field">
+              <span>New password</span>
+              <PasswordInput value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+            </label>
+            <PasswordFeedback password={newPassword} confirmPassword={confirmPassword} matchLabel="Passwords match" />
+            <label className="field">
+              <span>Confirm new password</span>
+              <PasswordInput value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+            </label>
+          </>}
+
+          {message && <div className={`result ${isErrorMessage(message) ? "failure" : "success"}`}>{message}</div>}
+          <button type="submit" disabled={loading}>
+            {loading ? "Please wait..." : step === "email" ? "Continue" : step === "code" ? "Verify code" : "Reset password & sign in"}
+          </button>
+          <div className="authSwitch">
+            {step !== "email" && <button className="linkButton" type="button" onClick={() => { setStep("email"); setCode(""); setResetToken(""); setMessage(""); }}>Start over</button>}
+            <span>Remembered your password?</span>
+            <button className="linkButton" type="button" onClick={() => navigate("/login")}>Login</button>
+          </div>
+        </form>
       </div>
       <footer className="loginCopyright">© 2026 ARFF File Analyzer</footer>
     </section>
@@ -652,6 +771,7 @@ function UploadWorkspace({ token, user, onLogout }) {
 function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }) {
   const isAdmin = user.role === "ADMIN";
   const [logs, setLogs] = useState([]);
+  const [lastLoginAt, setLastLoginAt] = useState(user.lastLoginAt || null);
   const [logMessage, setLogMessage] = useState("");
   const [form, setForm] = useState({ email: user.email, currentPassword: "", newPassword: "", confirmPassword: "" });
   const [message, setMessage] = useState("");
@@ -671,8 +791,18 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
     }
   }
 
+  async function loadLastLogin() {
+    try {
+      const data = await parseJson(await fetch(`${API_URL}/api/auth/me`, { headers: authHeaders(token) }));
+      setLastLoginAt(data.user?.lastLoginAt || null);
+    } catch {
+      setLastLoginAt(null);
+    }
+  }
+
   useEffect(() => {
     loadLogs();
+    loadLastLogin();
   }, []);
 
   function updateField(field, value) {
@@ -884,6 +1014,12 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
             </div>
           </div>
           <p className="contactEmail">{isAdmin ? "support@arff-analyzer.local" : user.email}</p>
+          {!isAdmin && (
+            <div className="lastLoginSummary">
+              <strong>Last login</strong>
+              <span>{lastLoginAt ? new Date(lastLoginAt).toLocaleString() : "No successful login recorded"}</span>
+            </div>
+          )}
 
           {!isAdmin && (
             <div className="twoFactorReset">
@@ -1007,6 +1143,9 @@ function App() {
   }
 
   if (!token || !user) {
+    if (path === "/forgot-password") {
+      return <main><ForgotPasswordPage onAuthenticated={handleAuthenticated} /></main>;
+    }
     return (
       <main>
         <UserAuthPage mode={path === "/register" ? "register" : "login"} onAuthenticated={handleAuthenticated} />

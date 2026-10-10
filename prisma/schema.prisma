@@ -25,6 +25,7 @@ model User {
   role             String        @default("USER")
   twoFactorSecret  String?
   twoFactorEnabled Boolean       @default(false)
+  sessionVersion   Int           @default(0)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   datasets         Dataset[]

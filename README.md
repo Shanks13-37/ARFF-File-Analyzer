@@ -57,6 +57,7 @@ The admin dashboard is separate from the user upload page. It shows admin securi
 | --- | --- | --- |
 | `/register` | Public | Register a normal user account. |
 | `/login` | Public | Log in as a normal user or administrator. |
+| `/forgot-password` | Public | Verify with the account's current TOTP code, set a new password, and sign in. |
 | `/` | `USER` | Upload and validate ARFF files. |
 | `/admin` | `ADMIN` | Admin dashboard, activity logs, and login settings. |
 
@@ -76,6 +77,8 @@ The admin dashboard is separate from the user upload page. It shows admin securi
 | `POST` | `/api/auth/login` | Public | Verify password, then require authenticator setup or issue a second-step challenge. |
 | `POST` | `/api/auth/2fa/enable` | Short-lived setup session | Verify the setup code and finish account enrollment. |
 | `POST` | `/api/auth/2fa/verify-login` | Short-lived challenge | Complete login with an authenticator code. |
+| `POST` | `/api/auth/password-reset/verify-totp` | Public, rate-limited | Verify the account email and current TOTP code before password reset. |
+| `POST` | `/api/auth/password-reset/complete` | Short-lived reset session | Set a new password, invalidate previous sessions, and return a signed-in session. |
 | `GET` | `/api/auth/me` | Authenticated | Return the current signed-in user. |
 
 ### User Uploads

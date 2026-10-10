@@ -8,7 +8,7 @@ export async function createTotpSetup(user) {
     issuer: "ARFF File Analyzer",
     length: 20
   });
-  const setupToken = signToken({ purpose: "setup_2fa", sub: user.id, secret: secret.base32 }, "10m");
+  const setupToken = signToken({ purpose: "setup_2fa", sub: user.id, secret: secret.base32, sv: user.sessionVersion ?? 0 }, "10m");
 
   return {
     setupToken,

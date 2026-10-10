@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { prisma } from "../db.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "development-secret-change-me";
 const INSECURE_SECRETS = new Set(["development-secret-change-me", "replace-with-a-long-random-secret"]);
@@ -15,7 +16,7 @@ export function verifyToken(token) {
   return jwt.verify(token, JWT_SECRET);
 }
 
-export function requireAuth(req, res, next) {
+export async function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
 
@@ -24,10 +25,15 @@ export function requireAuth(req, res, next) {
   }
 
   try {
-    req.user = verifyToken(token);
-    if (req.user.mfa !== true) {
+    const payload = verifyToken(token);
+    if (payload.mfa !== true || !Number.isInteger(payload.sv)) {
       return res.status(401).json({ error: "Authenticator verification is required. Sign in again." });
     }
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { role: true, sessionVersion: true } });
+    if (!user || user.sessionVersion !== payload.sv) {
+      return res.status(401).json({ error: "Your session has expired. Sign in again." });
+    }
+    req.user = { ...payload, role: user.role };
     return next();
   } catch {
     return res.status(401).json({ error: "Invalid or expired authorization token." });
@@ -35,8 +41,8 @@ export function requireAuth(req, res, next) {
 }
 
 export function requireRole(role) {
-  return (req, res, next) => {
-    requireAuth(req, res, () => {
+  return async (req, res, next) => {
+    await requireAuth(req, res, () => {
       if (req.user?.role !== role) {
         return res.status(403).json({ error: "You are not authorized to access this resource." });
       }

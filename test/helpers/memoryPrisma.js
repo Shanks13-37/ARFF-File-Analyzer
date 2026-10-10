@@ -17,15 +17,30 @@ export function createMemoryDatabase() {
           error.code = "P2002";
           throw error;
         }
-        const user = { id: `user-${nextId++}`, twoFactorEnabled: false, twoFactorSecret: null, ...data };
+        const user = { id: `user-${nextId++}`, twoFactorEnabled: false, twoFactorSecret: null, sessionVersion: 0, createdAt: new Date(), updatedAt: new Date(), ...data };
         users.push(user);
         return user;
       },
       async update({ where, data }) {
         const user = users.find((entry) => entry.id === where.id);
         if (!user) throw new Error("User not found");
-        Object.assign(user, data);
+        for (const [key, value] of Object.entries(data)) {
+          if (value && typeof value === "object" && "increment" in value) user[key] += value.increment;
+          else user[key] = value;
+        }
+        user.updatedAt = new Date();
         return user;
+      },
+      async updateMany({ where, data }) {
+        const matching = users.filter((user) => Object.entries(where).every(([key, value]) => user[key] === value));
+        for (const user of matching) {
+          for (const [key, value] of Object.entries(data)) {
+            if (value && typeof value === "object" && "increment" in value) user[key] += value.increment;
+            else user[key] = value;
+          }
+          user.updatedAt = new Date();
+        }
+        return { count: matching.length };
       }
     },
     dataset: {
@@ -46,6 +61,11 @@ export function createMemoryDatabase() {
       },
       async findMany({ where } = {}) {
         return activityLogs.filter((log) => !where || log.userId === where.userId);
+      },
+      async findFirst({ where, orderBy } = {}) {
+        const matches = activityLogs.filter((log) => !where || Object.entries(where).every(([key, value]) => log[key] === value));
+        if (orderBy?.createdAt === "desc") matches.sort((a, b) => b.createdAt - a.createdAt);
+        return matches[0] || null;
       }
     }
   };

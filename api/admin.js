@@ -33,6 +33,7 @@ export function registerAdminRoutes(app) {
       if (resetTwoFactor) {
         data.twoFactorSecret = null;
         data.twoFactorEnabled = false;
+        data.sessionVersion = { increment: 1 };
       }
 
       const updated = await prisma.user.update({

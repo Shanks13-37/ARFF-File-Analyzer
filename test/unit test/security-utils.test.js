@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requireAdmin, requireAuth, requireRole, signToken } from "../backend/utils/auth.js";
-import { detectImage, isValidIp, contactSchema } from "../backend/utils/validators.js";
-import { isStrongPassword, PASSWORD_REQUIREMENTS } from "../backend/utils/password.js";
-import { rateLimit } from "../backend/utils/rateLimit.js";
+import { requireAdmin, requireAuth, requireRole, signToken } from "../../backend/utils/auth.js";
+import { setPrismaClient } from "../../backend/db.js";
+import { detectImage, isValidIp, contactSchema } from "../../backend/utils/validators.js";
+import { isStrongPassword, PASSWORD_REQUIREMENTS } from "../../backend/utils/password.js";
+import { rateLimit } from "../../backend/utils/rateLimit.js";
 
 function response() {
   return {
@@ -53,30 +54,48 @@ test("detects supported image signatures and rejects unknown or short buffers", 
   assert.equal(detectImage(null), null);
 });
 
-test("requires a bearer token with completed authenticator verification", () => {
+test("requires a bearer token with completed authenticator verification and active session", async (context) => {
+  const users = new Map([
+    ["u1", { id: "u1", role: "USER", sessionVersion: 0 }],
+    ["a1", { id: "a1", role: "ADMIN", sessionVersion: 0 }]
+  ]);
+  setPrismaClient({ user: { async findUnique({ where }) { return users.get(where.id) || null; } } });
+  context.after(() => setPrismaClient(null));
+
   const noTokenResponse = response();
-  requireAuth({ headers: {} }, noTokenResponse, () => assert.fail("must not continue"));
+  await requireAuth({ headers: {} }, noTokenResponse, () => assert.fail("must not continue"));
   assert.equal(noTokenResponse.statusCode, 401);
 
   const incompleteResponse = response();
-  requireAuth({ headers: { authorization: `Bearer ${signToken({ sub: "u1", mfa: false })}` } }, incompleteResponse, () => assert.fail("must not continue"));
+  await requireAuth({ headers: { authorization: `Bearer ${signToken({ sub: "u1", mfa: false, sv: 0 })}` } }, incompleteResponse, () => assert.fail("must not continue"));
   assert.equal(incompleteResponse.statusCode, 401);
   assert.match(incompleteResponse.body.error, /authenticator verification/i);
 
   const successResponse = response();
   let continued = false;
-  requireAuth({ headers: { authorization: `Bearer ${signToken({ sub: "u1", mfa: true, role: "USER" })}` } }, successResponse, () => { continued = true; });
+  await requireAuth({ headers: { authorization: `Bearer ${signToken({ sub: "u1", mfa: true, role: "USER", sv: 0 })}` } }, successResponse, () => { continued = true; });
   assert.equal(continued, true);
+
+  const revokedResponse = response();
+  await requireAuth({ headers: { authorization: `Bearer ${signToken({ sub: "u1", mfa: true, sv: 1 })}` } }, revokedResponse, () => assert.fail("must not continue"));
+  assert.equal(revokedResponse.statusCode, 401);
 });
 
-test("enforces roles after authentication", () => {
+test("enforces roles after authentication", async (context) => {
+  const users = new Map([
+    ["u1", { id: "u1", role: "USER", sessionVersion: 0 }],
+    ["a1", { id: "a1", role: "ADMIN", sessionVersion: 0 }]
+  ]);
+  setPrismaClient({ user: { async findUnique({ where }) { return users.get(where.id) || null; } } });
+  context.after(() => setPrismaClient(null));
+
   const denied = response();
-  requireAdmin({ headers: { authorization: `Bearer ${signToken({ sub: "u1", mfa: true, role: "USER" })}` } }, denied, () => assert.fail("must not continue"));
+  await requireAdmin({ headers: { authorization: `Bearer ${signToken({ sub: "u1", mfa: true, sv: 0 })}` } }, denied, () => assert.fail("must not continue"));
   assert.equal(denied.statusCode, 403);
 
   const allowed = response();
   let continued = false;
-  requireRole("ADMIN")({ headers: { authorization: `Bearer ${signToken({ sub: "a1", mfa: true, role: "ADMIN" })}` } }, allowed, () => { continued = true; });
+  await requireRole("ADMIN")({ headers: { authorization: `Bearer ${signToken({ sub: "a1", mfa: true, sv: 0 })}` } }, allowed, () => { continued = true; });
   assert.equal(continued, true);
 });
 
