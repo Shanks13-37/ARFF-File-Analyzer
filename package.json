@@ -17,7 +17,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
-    "db:seed": "node prisma/seed.js"
+    "db:seed": "node prisma/seed.js",
+    "start:render": "npm run db:push && npm run db:seed && npm start"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",
