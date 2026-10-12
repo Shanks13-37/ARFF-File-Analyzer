@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import {
   Activity,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Database,
   Eye,
   EyeOff,
@@ -139,6 +141,12 @@ function Header({ activePage, user, onLogout }) {
       <div className="navLinks">
         {user ? (
           <>
+            {!isAdmin && (
+              <span className="navLastLogin">
+                <strong>Last login:</strong>{" "}
+                {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "Loading…"}
+              </span>
+            )}
             <a
               className={activePage === "home" || activePage === "admin" ? "active" : ""}
               href={isAdmin ? "/admin" : "/"}
@@ -637,65 +645,95 @@ function ForgotPasswordPage({ onAuthenticated }) {
 }
 
 function UploadWorkspace({ token, user, onLogout }) {
-  const [file, setFile] = useState(null);
-  const [result, setResult] = useState(null);
-  const [analysisResult, setAnalysisResult] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadResults, setUploadResults] = useState([]);
+  const [activeResultIndex, setActiveResultIndex] = useState(0);
+  const [selectionError, setSelectionError] = useState("");
+  const [progressMessage, setProgressMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
-
-  const selectedFileStatus = useMemo(() => {
-    if (!file) return null;
-    return file.name.toLowerCase().endsWith(".arff") ? "valid" : "invalid";
-  }, [file]);
+  const currentResult = uploadResults[activeResultIndex] || null;
 
   async function submitUpload(event) {
     event.preventDefault();
-    setAnalysisResult(null);
-    if (!file) {
-      setResult({ valid: false, error: "Please select a file first." });
+    if (selectedFiles.length === 0) {
+      setSelectionError("Please select at least one file first.");
       return;
     }
 
     setLoading(true);
-    setResult(null);
-
-    const body = new FormData();
-    body.append("file", file);
+    setSelectionError("");
+    setProgressMessage("");
+    setUploadResults([]);
+    setActiveResultIndex(0);
+    const results = [];
 
     try {
-      const response = await fetch(`${API_URL}/api/uploads/arff`, {
-        method: "POST",
-        headers: authHeaders(token),
-        body
-      });
-      const data = await response.json().catch(() => ({}));
-      const hasAnalysis = Boolean(data.summary && data.attributes && data.missingValues);
+      for (const [index, file] of selectedFiles.entries()) {
+        setProgressMessage(`Validating file ${index + 1} of ${selectedFiles.length}: ${file.name}`);
+        const body = new FormData();
+        body.append("file", file);
 
-      if (response.ok) {
-        setAnalysisResult(data);
-        setResult({ valid: true, message: data.message || "File uploaded and analyzed successfully." });
-      } else {
-        setAnalysisResult(hasAnalysis ? data : null);
-        const message = response.status >= 500
-          ? "The server could not process the upload. Please try again later."
-          : data.error || "The uploaded file could not be analyzed.";
-        logClientError({
-          stage: "upload",
-          code: data.errors?.[0]?.code || `HTTP_${response.status}`,
-          message,
-          context: { status: response.status }
-        });
-        setResult({ valid: false, error: message });
+        try {
+          const response = await fetch(`${API_URL}/api/uploads/arff`, {
+            method: "POST",
+            headers: authHeaders(token),
+            body
+          });
+          const data = await response.json().catch(() => ({}));
+          const hasAnalysis = Boolean(data.summary && data.attributes && data.missingValues);
+          const message = response.ok
+            ? data.message || "File uploaded and analyzed successfully."
+            : response.status >= 500
+              ? "The server could not process the upload. Please try again later."
+              : data.error || "The uploaded file could not be analyzed.";
+
+          if (!response.ok) {
+            logClientError({
+              stage: "upload",
+              code: data.errors?.[0]?.code || `HTTP_${response.status}`,
+              message,
+              context: { status: response.status, fileName: file.name }
+            });
+          }
+
+          results.push({ fileName: file.name, valid: response.ok, message, analysisResult: response.ok || hasAnalysis ? data : null });
+          setHistoryVersion((value) => value + 1);
+        } catch {
+          const message = "Unable to reach the upload server.";
+          logClientError({ stage: "upload", code: "UPLOAD_NETWORK_ERROR", message, context: { fileName: file.name } });
+          results.push({ fileName: file.name, valid: false, message, analysisResult: null });
+        }
+
+        setUploadResults([...results]);
+        setActiveResultIndex(results.length - 1);
       }
-      setHistoryVersion((value) => value + 1);
-    } catch {
-      setAnalysisResult(null);
-      logClientError({ stage: "upload", code: "UPLOAD_NETWORK_ERROR", message: "Unable to reach the upload server." });
-      setResult({ valid: false, error: "Unable to reach the upload server." });
+
+      setActiveResultIndex(0);
+      setProgressMessage("");
     } finally {
       setLoading(false);
     }
   }
+
+  function changeFiles(event) {
+    setSelectedFiles(Array.from(event.target.files || []));
+    setUploadResults([]);
+    setActiveResultIndex(0);
+    setSelectionError("");
+    setProgressMessage("");
+    event.target.value = "";
+  }
+
+  function showPreviousResult() {
+    setActiveResultIndex((index) => Math.max(0, index - 1));
+  }
+
+  function showNextResult() {
+    setActiveResultIndex((index) => Math.min(uploadResults.length - 1, index + 1));
+  }
+
+  const allFilesHaveArffExtension = selectedFiles.every((file) => file.name.toLowerCase().endsWith(".arff"));
 
   return (
     <section className="hero userDashboard">
@@ -710,57 +748,81 @@ function UploadWorkspace({ token, user, onLogout }) {
           </div>
           <h1>File Upload & Validation</h1>
           <p className="projectByline">Signed-in user workspace</p>
-          <p>Upload a dataset file, validate the ARFF structure, and keep the attempt linked to your account.</p>
+          <p>Upload one or more datasets, validate their ARFF structure, and keep each attempt linked to your account.</p>
         </div>
 
         <form className="uploadPanel" onSubmit={submitUpload}>
           <div className="panelHeader">
             <FileUp size={22} />
             <div>
-              <h2>Upload ARFF File</h2>
-              <p>Accepted format: .arff, max 10 MB</p>
+              <h2>Upload ARFF Files</h2>
+              <p>Select multiple .arff files; maximum 10 MB per file</p>
             </div>
           </div>
 
-          <label className="dropzone">
+          <label className={`dropzone${loading ? " disabled" : ""}`}>
             <input
               type="file"
               accept=".arff"
-              onChange={(event) => {
-                setFile(event.target.files?.[0] || null);
-                setAnalysisResult(null);
-                setResult(null);
-              }}
+              multiple
+              disabled={loading}
+              onChange={changeFiles}
             />
-            <span>Choose file</span>
-            <strong>{file ? file.name : "No file selected"}</strong>
+            <span>Choose files</span>
+            <strong>
+              {selectedFiles.length === 0
+                ? "No files selected"
+                : selectedFiles.length === 1
+                  ? selectedFiles[0].name
+                  : `${selectedFiles.length} files selected`}
+            </strong>
           </label>
 
-          {file && (
-            <div className={`fileCheck ${selectedFileStatus}`}>
-              {selectedFileStatus === "valid" ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+          {selectedFiles.length > 0 && (
+            <div className={`fileCheck ${allFilesHaveArffExtension ? "valid" : "invalid"}`}>
+              {allFilesHaveArffExtension ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
               <span>
-                {selectedFileStatus === "valid"
-                  ? `Looks valid locally (${formatBytes(file.size)})`
-                  : "Invalid extension selected"}
+                {allFilesHaveArffExtension
+                  ? `${selectedFiles.length} file${selectedFiles.length === 1 ? "" : "s"} selected. Each is checked separately.`
+                  : "One or more files do not have an .arff extension; those files will show individual errors."}
               </span>
             </div>
           )}
 
+          {selectionError && <div className="result failure">{selectionError}</div>}
+          {progressMessage && <p className="uploadProgress" aria-live="polite">{progressMessage}</p>}
+
           <button type="submit" disabled={loading}>
             <ShieldCheck size={18} />
-            {loading ? "Validating..." : "Validate Upload"}
+            {loading ? "Validating files..." : "Validate Files"}
           </button>
-
-          {result && (
-            <div className={`result ${result.valid ? "success" : "failure"}`}>
-              {result.valid ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
-              <span>{result.message || result.error}</span>
-            </div>
-          )}
         </form>
 
-        <AnalysisResult result={analysisResult} />
+        {currentResult && (
+          <div className="uploadOutputNav" aria-label="File validation results">
+            {uploadResults.length > 1 ? (
+              <button className="secondaryButton outputArrow" type="button" onClick={showPreviousResult} disabled={activeResultIndex === 0} aria-label="Previous file result" title="Previous file result">
+                <ChevronLeft size={22} />
+              </button>
+            ) : <span />}
+            <div className={`uploadOutputCard ${currentResult.valid ? "success" : "failure"}`} aria-live="polite">
+              <div className="uploadOutputHeading">
+                <strong>{currentResult.fileName}</strong>
+                <span>Result {activeResultIndex + 1} of {uploadResults.length}</span>
+              </div>
+              <p>{currentResult.message}</p>
+            </div>
+            {uploadResults.length > 1 ? (
+              <button className="secondaryButton outputArrow" type="button" onClick={showNextResult} disabled={activeResultIndex === uploadResults.length - 1} aria-label="Next file result" title="Next file result">
+                <ChevronRight size={22} />
+              </button>
+            ) : <span />}
+          </div>
+        )}
+
+        {currentResult?.analysisResult && (
+          <AnalysisResult key={`${activeResultIndex}-${currentResult.fileName}`} result={currentResult.analysisResult} />
+        )}
 
       </div>
       <DatasetHistory token={token} refreshKey={historyVersion} />
