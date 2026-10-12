@@ -1013,7 +1013,7 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
               <p>{isAdmin ? "Project support mailbox." : "Your signed-in profile."}</p>
             </div>
           </div>
-          <p className="contactEmail">{isAdmin ? "support@arff-analyzer.local" : user.email}</p>
+          <p className="contactEmail">{isAdmin ? "shraddhakovalli21@gmail.com" : user.email}</p>
           {!isAdmin && (
             <div className="lastLoginSummary">
               <strong>Last login</strong>
@@ -1161,7 +1161,7 @@ function App() {
         <AdminDashboard token={token} user={user} onUserUpdated={handleUserUpdated} onLogout={logout} view={adminView} />
         <footer>
           <strong>Admin</strong>
-          <span>support@arff-analyzer.local</span>
+          <span>shraddhakovalli21@gmail.com</span>
           <span>Security settings and activity review</span>
         </footer>
       </main>
@@ -1176,7 +1176,7 @@ function App() {
         <AdminDashboard token={token} user={user} onUserUpdated={handleUserUpdated} onLogout={logout} view={userView} />
         <footer>
           <strong>Account</strong>
-          <span>support@arff-analyzer.local</span>
+          <span>shraddhakovalli21@gmail.com</span>
           <span>User settings and activity review</span>
         </footer>
       </main>
@@ -1188,8 +1188,7 @@ function App() {
       <UploadWorkspace token={token} user={user} onLogout={logout} />
       <footer>
         <strong>Contact</strong>
-        <span>support@arff-analyzer.local</span>
-        <span>User uploads and ARFF validation</span>
+        <span>shraddhakovalli21@gmail.com</span>
       </footer>
     </main>
   );
