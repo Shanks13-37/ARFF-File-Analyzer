@@ -1161,7 +1161,7 @@ function App() {
         <AdminDashboard token={token} user={user} onUserUpdated={handleUserUpdated} onLogout={logout} view={adminView} />
         <footer>
           <strong>Admin</strong>
-          <span>shraddhakovalli21@gmail.com</span>
+          <span>shraddhakovalli21@gmail.com arnavmiranda@gmail.com sadhanamohanraj26@gmail.com</span>
           <span>Security settings and activity review</span>
         </footer>
       </main>
