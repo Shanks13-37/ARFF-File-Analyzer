@@ -6,12 +6,15 @@ A web application for uploading, validating, and analyzing ARFF datasets. It com
 
 - Parse and validate `.arff` files, including relation/attribute declarations and data rows.
 - Analyze records for missing values, duplicate rows, attribute details, and related dataset statistics.
-- Review analysis results in the browser and export reports.
+- Select and validate multiple ARFF files in one batch; review each file's result separately with fixed left/right navigation arrows.
+- Choose which analyzed files to include in a single combined PDF, with each file's report starting on a new page.
+- Check file contents for the required ARFF header directives so a non-ARFF file renamed with an `.arff` extension is rejected.
+- Keep the page background stable while switching between reports, with consistent styling across user, account, and administrator pages.
 - Keep a per-account dataset history and activity log; administrators can review system-wide history.
 - Register user accounts and manage administrator accounts separately.
 - Require a time-based one-time password (TOTP) from an authenticator app at sign-in.
 - Recover an account password using its existing authenticator, then sign in immediately.
-- Show regular users their last successful login time in account settings.
+- Show the user's last successful login time in the dashboard navigation and account settings.
 
 Uploaded file contents are processed in memory. The database stores the dataset name, size, validation result, and errors—not a copy of the original ARFF file.
 
@@ -128,7 +131,11 @@ All protected routes require `Authorization: Bearer <token>`.
 
 ## ARFF upload behavior
 
-The upload accepts one file using multipart form field `file` and enforces a 10 MiB maximum. Empty files and non-`.arff` files are rejected. The parser validates ARFF structure and row values; analysis results include record and attribute information, missing values, duplicate records, and other summaries. A validation failure is returned with details and is still recorded in the dataset history when possible.
+The user workspace accepts multiple `.arff` files in one selection and validates them individually. Each file has a 10 MiB maximum. Empty files, files with a non-`.arff` extension, binary content, and files without the expected ARFF header are rejected. Because ARFF is a text format without a dependable binary signature or MIME type, the header check verifies the `@RELATION`, `@ATTRIBUTE`, and `@DATA` directives in the file contents. A file that fails this check is reported as “This is an invalid ARFF file.”
+
+The API processes each upload request as one file using multipart form field `file`; the frontend submits the selected files one by one and keeps a separate result for each. The parser validates ARFF structure and row values. Analysis results include record and attribute information, missing values, duplicate records, and other summaries. Validation failures are returned with details when available and are recorded in the dataset history when possible.
+
+Use the fixed left/right arrows at the sides of the page to move between batch results. To make a combined PDF, select the analyzed files in the report selector and choose **Export selected**. Each selected file receives its own report in the same PDF, beginning on a new page. Files rejected before analysis are not available for PDF export.
 
 ## Configuration
 
