@@ -17,9 +17,10 @@ function textValue(value) {
   return value === null || value === undefined ? "?" : String(value);
 }
 
-export function createAnalysisPdf(analysisResult, generatedAt) {
+export function createAnalysisPdf(analysisResult, generatedAt, existingDoc = null) {
   const report = buildPdfReportData(analysisResult, generatedAt);
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const doc = existingDoc || new jsPDF({ unit: "pt", format: "a4" });
+  if (existingDoc) doc.addPage();
   let y = MARGIN;
 
   const addPageIfNeeded = (height = 20) => {
@@ -161,6 +162,20 @@ export function createAnalysisPdf(analysisResult, generatedAt) {
 
 export function exportAnalysisPdf(analysisResult, generatedAt) {
   const { doc, filename } = createAnalysisPdf(analysisResult, generatedAt);
+  doc.save(filename);
+  return filename;
+}
+
+export function exportCombinedAnalysisPdf(analysisResults, generatedAt) {
+  if (!Array.isArray(analysisResults) || analysisResults.length === 0) {
+    throw new Error("Select at least one analyzed file to export.");
+  }
+
+  let doc = null;
+  analysisResults.forEach((analysisResult) => {
+    ({ doc } = createAnalysisPdf(analysisResult, generatedAt, doc));
+  });
+  const filename = "selected-analysis-reports.pdf";
   doc.save(filename);
   return filename;
 }

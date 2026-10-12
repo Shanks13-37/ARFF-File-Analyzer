@@ -22,6 +22,7 @@ import {
   XCircle
 } from "lucide-react";
 import AnalysisResult from "./components/AnalysisResult.jsx";
+import { exportCombinedAnalysisPdf } from "./components/exportPdf.js";
 import { logClientError } from "./utils/errorLogger.js";
 import "./styles.css";
 
@@ -648,6 +649,9 @@ function UploadWorkspace({ token, user, onLogout }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadResults, setUploadResults] = useState([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
+  const [selectedReportIndices, setSelectedReportIndices] = useState([]);
+  const [exportingReports, setExportingReports] = useState(false);
+  const [exportError, setExportError] = useState("");
   const [selectionError, setSelectionError] = useState("");
   const [progressMessage, setProgressMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -666,6 +670,8 @@ function UploadWorkspace({ token, user, onLogout }) {
     setProgressMessage("");
     setUploadResults([]);
     setActiveResultIndex(0);
+    setSelectedReportIndices([]);
+    setExportError("");
     const results = [];
 
     try {
@@ -722,6 +728,8 @@ function UploadWorkspace({ token, user, onLogout }) {
     setActiveResultIndex(0);
     setSelectionError("");
     setProgressMessage("");
+    setSelectedReportIndices([]);
+    setExportError("");
     event.target.value = "";
   }
 
@@ -731,6 +739,29 @@ function UploadWorkspace({ token, user, onLogout }) {
 
   function showNextResult() {
     setActiveResultIndex((index) => Math.min(uploadResults.length - 1, index + 1));
+  }
+
+  function toggleReportSelection(index) {
+    setSelectedReportIndices((indices) => indices.includes(index)
+      ? indices.filter((selectedIndex) => selectedIndex !== index)
+      : [...indices, index]);
+    setExportError("");
+  }
+
+  function exportSelectedReports() {
+    const reports = selectedReportIndices
+      .map((index) => uploadResults[index]?.analysisResult)
+      .filter(Boolean);
+    setExportError("");
+    setExportingReports(true);
+    try {
+      exportCombinedAnalysisPdf(reports, new Date().toLocaleString());
+    } catch (error) {
+      logClientError({ stage: "pdf-generation", code: "PDF_GENERATION_FAILED", message: error.message });
+      setExportError("The selected PDF reports could not be generated. Please try again.");
+    } finally {
+      setExportingReports(false);
+    }
   }
 
   const allFilesHaveArffExtension = selectedFiles.every((file) => file.name.toLowerCase().endsWith(".arff"));
@@ -800,11 +831,6 @@ function UploadWorkspace({ token, user, onLogout }) {
 
         {currentResult && (
           <div className="uploadOutputNav" aria-label="File validation results">
-            {uploadResults.length > 1 ? (
-              <button className="secondaryButton outputArrow" type="button" onClick={showPreviousResult} disabled={activeResultIndex === 0} aria-label="Previous file result" title="Previous file result">
-                <ChevronLeft size={22} />
-              </button>
-            ) : <span />}
             <div className={`uploadOutputCard ${currentResult.valid ? "success" : "failure"}`} aria-live="polite">
               <div className="uploadOutputHeading">
                 <strong>{currentResult.fileName}</strong>
@@ -812,19 +838,48 @@ function UploadWorkspace({ token, user, onLogout }) {
               </div>
               <p>{currentResult.message}</p>
             </div>
-            {uploadResults.length > 1 ? (
-              <button className="secondaryButton outputArrow" type="button" onClick={showNextResult} disabled={activeResultIndex === uploadResults.length - 1} aria-label="Next file result" title="Next file result">
-                <ChevronRight size={22} />
-              </button>
-            ) : <span />}
           </div>
         )}
 
+        {uploadResults.some((result) => result.analysisResult) && (
+          <section className="combinedPdfPicker" aria-label="Select reports to export">
+            <div className="combinedPdfHeader">
+              <div>
+                <h2>Combine reports into one PDF</h2>
+                <p>Select the analyzed files to include. Each report starts on a new page.</p>
+              </div>
+              <button type="button" onClick={exportSelectedReports} disabled={exportingReports || selectedReportIndices.length === 0}>
+                {exportingReports ? "Generating PDF..." : `Export selected (${selectedReportIndices.length})`}
+              </button>
+            </div>
+            <div className="combinedPdfFiles">
+              {uploadResults.map((result, index) => result.analysisResult && (
+                <label className="combinedPdfFile" key={`${index}-${result.fileName}`}>
+                  <input type="checkbox" checked={selectedReportIndices.includes(index)} onChange={() => toggleReportSelection(index)} />
+                  <span>{result.fileName}</span>
+                  <small>{result.valid ? "Validated" : "Validation issues"}</small>
+                </label>
+              ))}
+            </div>
+            {exportError && <div className="result failure">{exportError}</div>}
+          </section>
+        )}
+
         {currentResult?.analysisResult && (
-          <AnalysisResult key={`${activeResultIndex}-${currentResult.fileName}`} result={currentResult.analysisResult} />
+          <AnalysisResult key={`${activeResultIndex}-${currentResult.fileName}`} result={currentResult.analysisResult} reportExportMode />
         )}
 
       </div>
+      {uploadResults.length > 1 && (
+        <div className="fixedOutputArrows" aria-label="Switch between file results">
+          <button className="secondaryButton outputArrow" type="button" onClick={showPreviousResult} disabled={activeResultIndex === 0} aria-label="Previous file result" title="Previous file result">
+            <ChevronLeft size={22} />
+          </button>
+          <button className="secondaryButton outputArrow" type="button" onClick={showNextResult} disabled={activeResultIndex === uploadResults.length - 1} aria-label="Next file result" title="Next file result">
+            <ChevronRight size={22} />
+          </button>
+        </div>
+      )}
       <DatasetHistory token={token} refreshKey={historyVersion} />
     </section>
   );

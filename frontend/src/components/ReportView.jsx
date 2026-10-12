@@ -11,7 +11,7 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-export default function ReportView({ analysisResult }) {
+export default function ReportView({ analysisResult, showExportButton = true }) {
   const [exportError, setExportError] = React.useState("");
   const [exporting, setExporting] = React.useState(false);
   const sections = useMemo(() => getReportSections(analysisResult), [analysisResult]);
@@ -52,7 +52,7 @@ export default function ReportView({ analysisResult }) {
           <span className={`analysisStatus ${analysisResult?.valid ? "valid" : "invalid"}`}>
             {analysisResult?.valid ? "VALID" : "HAS VALIDATION ISSUES"}
           </span>
-          <button type="button" onClick={exportPdf} disabled={exporting}>{exporting ? "Generating PDF..." : "Export as PDF"}</button>
+          {showExportButton && <button type="button" onClick={exportPdf} disabled={exporting}>{exporting ? "Generating PDF..." : "Export as PDF"}</button>}
         </div>
       </div>
       {exportError && <div className="result failure">{exportError}</div>}

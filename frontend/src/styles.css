@@ -1,4 +1,5 @@
 :root {
+  --app-background: linear-gradient(45deg, rgba(240, 249, 255, 0.96), rgba(224, 242, 254, 0.93), rgba(248, 250, 252, 0.98));
   color: #1e293b;
   background: #f0f9ff;
   font-family:
@@ -25,8 +26,8 @@ main {
 
 .hero {
   align-items: center;
-  background:
-    linear-gradient(45deg, rgba(240, 249, 255, 0.96), rgba(224, 242, 254, 0.93), rgba(248, 250, 252, 0.98));
+  background: var(--app-background);
+  background-attachment: fixed;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -46,7 +47,7 @@ main {
   justify-content: center;
   overflow: hidden;
   pointer-events: none;
-  position: absolute;
+  position: fixed;
   z-index: 0;
 }
 
@@ -904,14 +905,97 @@ main {
 }
 
 .uploadOutputNav {
-  align-items: stretch;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: 44px minmax(0, 1fr) 44px;
   margin: 26px auto;
   max-width: 900px;
   position: relative;
   z-index: 1;
+}
+
+.fixedOutputArrows {
+  align-items: center;
+  display: flex;
+  inset: 50% 18px auto;
+  justify-content: space-between;
+  pointer-events: none;
+  position: fixed;
+  transform: translateY(-50%);
+  z-index: 20;
+}
+
+.fixedOutputArrows .outputArrow {
+  box-shadow: 0 8px 22px rgba(30, 58, 138, 0.24);
+  pointer-events: auto;
+}
+
+.combinedPdfPicker {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #bae6fd;
+  border-radius: 18px;
+  display: grid;
+  gap: 14px;
+  margin: 0 auto 26px;
+  max-width: 900px;
+  padding: 18px;
+  position: relative;
+  text-align: left;
+  width: 100%;
+  z-index: 1;
+}
+
+.combinedPdfHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.combinedPdfHeader h2 {
+  color: #1e3a8a;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.combinedPdfHeader p {
+  color: #64748b;
+  margin: 5px 0 0;
+}
+
+.combinedPdfFiles {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.combinedPdfFile {
+  align-items: center;
+  background: #f0f9ff;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  color: #334155;
+  display: flex;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.combinedPdfFile input {
+  accent-color: #2563eb;
+  flex: 0 0 auto;
+  height: 16px;
+  width: 16px;
+}
+
+.combinedPdfFile span {
+  flex: 1 1 auto;
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.combinedPdfFile small {
+  color: #64748b;
+  flex: 0 0 auto;
 }
 
 .uploadOutputCard {
@@ -1077,8 +1161,8 @@ button:disabled {
 }
 
 .pageShell {
-  background:
-    linear-gradient(45deg, rgba(240, 249, 255, 0.96), rgba(224, 242, 254, 0.93), rgba(248, 250, 252, 0.98));
+  background: var(--app-background);
+  background-attachment: fixed;
   min-height: calc(100vh - 74px);
   overflow: hidden;
   padding: 24px clamp(18px, 4vw, 64px) 64px;
@@ -1406,19 +1490,27 @@ footer {
     flex-direction: column;
   }
 
-  .uploadOutputNav {
-    gap: 8px;
-    grid-template-columns: 36px minmax(0, 1fr) 36px;
-  }
-
   .uploadOutputHeading {
     flex-direction: column;
     gap: 4px;
   }
 
-  .outputArrow {
+  .fixedOutputArrows {
+    inset-inline: 5px;
+  }
+
+  .fixedOutputArrows .outputArrow {
     height: 36px;
     width: 36px;
+  }
+
+  .combinedPdfHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .combinedPdfHeader button {
+    width: 100%;
   }
 
   .hero {

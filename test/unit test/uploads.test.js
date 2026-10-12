@@ -72,6 +72,14 @@ test("rejects non-ARFF uploads", async () => {
   assert.equal(response.body.errors[0].code, "INVALID_FILE_EXTENSION");
 });
 
+test("rejects non-ARFF content renamed with an .arff extension", async () => {
+  const { response, dependencies } = await uploadFile("renamed.arff", "{\"name\":\"not an ARFF file\"}");
+  assert.equal(response.statusCode, 422);
+  assert.equal(response.body.errors[0].code, "INVALID_ARFF_HEADER");
+  assert.equal(response.body.error, "This is an invalid ARFF file.");
+  assert.equal(dependencies.activity[0][2], "FAILURE");
+});
+
 test("rejects files over 10 MB", async () => {
   const oversized = Buffer.alloc(10 * 1024 * 1024 + 1, 97);
   const { response } = await uploadFile("large.arff", oversized);
@@ -86,10 +94,10 @@ test("rejects empty ARFF files with a clear error", async () => {
   assert.equal(response.body.error, "The uploaded ARFF file is empty.");
 });
 
-test("returns structured missing relation errors", async () => {
+test("rejects files without an ARFF header before parsing", async () => {
   const { response } = await uploadFile("missing-relation.arff", "@attribute a numeric\n@data\n1");
   assert.equal(response.statusCode, 422);
-  assert.ok(response.body.errors.some((error) => error.code === "MISSING_RELATION"));
+  assert.ok(response.body.errors.some((error) => error.code === "INVALID_ARFF_HEADER"));
 });
 
 test("returns structured missing data errors", async () => {

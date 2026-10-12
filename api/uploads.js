@@ -4,6 +4,7 @@ import { requireRole } from "../backend/utils/auth.js";
 import { logActivity } from "../backend/utils/activity.js";
 import { parseArff } from "../backend/arff/parser.js";
 import { analyzeDataset } from "../backend/arff/analyzer.js";
+import { validateArffHeader } from "../backend/arff/headerValidator.js";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -93,6 +94,28 @@ export function createUploadHandler({ prismaClient = prisma, activityLogger = lo
         return res.status(503).json({ valid: false, error: "Upload storage is unavailable. Check the database connection." });
       }
       await activityLogger(req, "ARFF_UPLOAD_VALIDATION", "FAILURE", { stage: "upload", code: error.code, message: error.message }, userId);
+      return res.status(422).json({ valid: false, datasetId: dataset.id, file: fileDescriptor(file), error: error.message, errors: [error] });
+    }
+
+    const headerCheck = validateArffHeader(file.buffer);
+    if (!headerCheck.valid) {
+      const error = { ...structuredFileError(headerCheck.code, headerCheck.message), line: 1, section: "header" };
+      let dataset;
+      try {
+        dataset = await prismaClient.dataset.create({
+          data: {
+            userId,
+            originalName: file.originalname,
+            fileSize: file.size,
+            valid: false,
+            errors: [error.message]
+          }
+        });
+      } catch (storageError) {
+        console.error(storageError);
+        return res.status(503).json({ valid: false, error: "Upload storage is unavailable. Check the database connection." });
+      }
+      await activityLogger(req, "ARFF_UPLOAD_VALIDATION", "FAILURE", { stage: "header", code: error.code, message: error.message }, userId);
       return res.status(422).json({ valid: false, datasetId: dataset.id, file: fileDescriptor(file), error: error.message, errors: [error] });
     }
 

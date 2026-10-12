@@ -9,7 +9,7 @@ import PaginationControls from "./PaginationControls.jsx";
 
 const ROWS_PER_PAGE = 5;
 
-export default function AnalysisResult({ result }) {
+export default function AnalysisResult({ result, reportExportMode = false }) {
   if (!result) return null;
 
   const violations = Array.isArray(result.typeViolations) ? result.typeViolations : [];
@@ -104,7 +104,7 @@ export default function AnalysisResult({ result }) {
       </div>
 
       <RecordTable attributes={attributes} records={filteredRecords} />
-      <ReportView analysisResult={result} />
+      <ReportView analysisResult={result} showExportButton={!reportExportMode} />
     </div>
   );
 }
