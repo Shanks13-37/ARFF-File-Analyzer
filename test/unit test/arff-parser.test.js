@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseArff } from "../backend/arff/parser.js";
+import { parseArff } from "../../backend/arff/parser.js";
 
 function parse(text) {
   const result = parseArff(text);

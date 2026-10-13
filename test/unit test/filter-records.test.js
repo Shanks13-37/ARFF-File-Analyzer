@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { filterRecords } from "../frontend/src/components/filterRecords.js";
+import { filterRecords } from "../../frontend/src/components/filterRecords.js";
 
 const numeric = { index: 0, name: "age", type: "numeric" };
 const nominal = { index: 1, name: "class", type: "nominal", nominalValues: ["yes", "no"] };

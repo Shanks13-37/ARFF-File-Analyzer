@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPdfReportData, getPdfFilename } from "../frontend/src/components/pdfReportData.js";
-import { createAnalysisPdf } from "../frontend/src/components/exportPdf.js";
+import { buildPdfReportData, getPdfFilename } from "../../frontend/src/components/pdfReportData.js";
+import { createAnalysisPdf } from "../../frontend/src/components/exportPdf.js";
 
 const analysis = {
   file: { name: "weather.arff", size: 2048 },

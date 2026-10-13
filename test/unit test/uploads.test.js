@@ -6,7 +6,7 @@ import test from "node:test";
 // client without opening a database connection.
 process.env.DATABASE_URL ??= "postgresql://test:test@localhost:5432/test";
 
-const { createUploadHandler } = await import("../api/uploads.js");
+const { createUploadHandler } = await import("../../api/uploads.js");
 
 const validArff = `@relation demo
 @attribute age numeric
@@ -64,6 +64,10 @@ test("valid ARFF upload returns complete analysis", async () => {
   assert.equal(response.body.relation, "demo");
   assert.equal(response.body.summary.instanceCount, 1);
   assert.equal(response.body.records[0].values[0], "21");
+  assert.equal(response.body.statisticalProfile.version, 1);
+  assert.equal(response.body.statisticalProfile.attributes[0].statistics.mean, 21);
+  assert.equal(response.body.qualityAssessment.version, 1);
+  assert.equal(response.body.qualityAssessment.dimensions.schemaConformance.status, "passed");
 });
 
 test("rejects non-ARFF uploads", async () => {

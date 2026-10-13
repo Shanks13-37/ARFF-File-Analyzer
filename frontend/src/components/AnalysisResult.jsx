@@ -6,10 +6,12 @@ import ReportView from "./ReportView.jsx";
 import ErrorList from "./ErrorList.jsx";
 import RecordTable from "./RecordTable.jsx";
 import PaginationControls from "./PaginationControls.jsx";
+import StatisticalProfile from "./StatisticalProfile.jsx";
+import QualityAssessment from "./QualityAssessment.jsx";
 
 const ROWS_PER_PAGE = 5;
 
-export default function AnalysisResult({ result, reportExportMode = false }) {
+export default function AnalysisResult({ result, token, sourceFile, qualityRules, onQualityRulesChange, reportExportMode = false }) {
   if (!result) return null;
 
   const violations = Array.isArray(result.typeViolations) ? result.typeViolations : [];
@@ -36,6 +38,9 @@ export default function AnalysisResult({ result, reportExportMode = false }) {
     <div className="analysisResults" aria-live="polite">
       <AnalysisSummary result={result} />
       <ErrorList errors={Array.isArray(result.errors) ? result.errors : []} />
+
+      <StatisticalProfile profile={result.statisticalProfile} />
+      <QualityAssessment result={result} token={token} sourceFile={sourceFile} rules={qualityRules} onRulesChange={onQualityRulesChange} />
 
       {violations.length > 0 && (
         <div className="analysisSection analysisErrors">

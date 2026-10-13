@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { analyzeDataset } from "../backend/arff/analyzer.js";
-import { parseArff } from "../backend/arff/parser.js";
+import { analyzeDataset } from "../../backend/arff/analyzer.js";
+import { parseArff } from "../../backend/arff/parser.js";
 
 function analyze(text) {
   const parsed = parseArff(text);

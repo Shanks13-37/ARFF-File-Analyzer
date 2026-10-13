@@ -1,4 +1,4 @@
-const INVALID_HEADER_MESSAGE = "This is an invalid ARFF file.";
+const INVALID_HEADER_MESSAGE = "This is an invalid ARFF file. Expected @RELATION, @ATTRIBUTE, and @DATA directives.";
 
 /**
  * ARFF is a text format, so it has no reliable binary signature or MIME type.

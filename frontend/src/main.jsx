@@ -647,6 +647,7 @@ function ForgotPasswordPage({ onAuthenticated }) {
 
 function UploadWorkspace({ token, user, onLogout }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [qualityRules, setQualityRules] = useState([]);
   const [uploadResults, setUploadResults] = useState([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const [selectedReportIndices, setSelectedReportIndices] = useState([]);
@@ -866,7 +867,7 @@ function UploadWorkspace({ token, user, onLogout }) {
         )}
 
         {currentResult?.analysisResult && (
-          <AnalysisResult key={`${activeResultIndex}-${currentResult.fileName}`} result={currentResult.analysisResult} reportExportMode />
+          <AnalysisResult key={`${activeResultIndex}-${currentResult.analysisResult.datasetId || currentResult.fileName}`} result={currentResult.analysisResult} token={token} sourceFile={selectedFiles[activeResultIndex]} qualityRules={qualityRules} onQualityRulesChange={setQualityRules} reportExportMode />
         )}
 
       </div>

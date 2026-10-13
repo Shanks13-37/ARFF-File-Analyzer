@@ -279,6 +279,7 @@ export function parseArff(content) {
     dataset.records.push({
       index: dataset.records.length,
       values: values.map((entry) => (!entry.quoted && entry.value === "?" ? null : entry.value)),
+      quotedValues: values.map((entry) => entry.quoted),
       sourceLine: lineNumber
     });
   }

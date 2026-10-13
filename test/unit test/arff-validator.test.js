@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateArffFile } from "../backend/utils/arffValidator.js";
+import { validateArffFile } from "../../backend/utils/arffValidator.js";
 
 function file(content, name = "sample.arff", size) {
   const buffer = Buffer.isBuffer(content) ? content : Buffer.from(content);

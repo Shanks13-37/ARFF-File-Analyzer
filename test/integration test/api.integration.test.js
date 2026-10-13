@@ -84,8 +84,19 @@ test("HTTP API registration, 2FA enrollment, profile, and ARFF upload work toget
   const upload = await uploadResponse.json();
   assert.equal(upload.valid, true);
   assert.equal(upload.summary.instanceCount, 1);
+  assert.equal(upload.qualityAssessment.version, 1);
+  assert.equal(upload.qualityAssessment.dimensions.completeness.missingCount, 0);
   assert.equal(database.datasets.length, 1);
   assert.equal(database.datasets[0].userId, user.id);
+
+  const qualityForm = new FormData();
+  qualityForm.append("file", new Blob(["@relation demo\n@attribute value numeric\n@data\n3\n9"], { type: "text/plain" }), "quality.arff");
+  qualityForm.append("rules", JSON.stringify([{ id: "max-five", name: "At most five", type: "numeric_range", severity: "error", enabled: true, config: { attribute: "value", maximum: 5 } }]));
+  const qualityResponse = await fetch(`${base}/api/quality/evaluate`, { method: "POST", headers: { authorization: `Bearer ${enrolled.token}` }, body: qualityForm });
+  assert.equal(qualityResponse.status, 200);
+  const quality = await qualityResponse.json();
+  assert.equal(quality.qualityAssessment.ruleResults[0].failureCount, 1);
+  assert.equal(database.datasets.length, 1, "quality evaluation does not create upload-history rows");
   assert.ok(database.activityLogs.some((log) => log.action === "USER_2FA_ENABLED"));
 
   const resetCode = speakeasy.totp({ secret: setupPayload.secret, encoding: "base32" });

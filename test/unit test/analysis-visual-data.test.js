@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getMissingChartData, getReportSections, getTypeChartData } from "../frontend/src/components/analysisVisualData.js";
+import { getMissingChartData, getReportSections, getTypeChartData } from "../../frontend/src/components/analysisVisualData.js";
 
 test("represents attribute type counts correctly", () => {
   assert.deepEqual(getTypeChartData({ attributeTypeCounts: { numeric: 2, nominal: 1, string: 0, date: 3 } }), [

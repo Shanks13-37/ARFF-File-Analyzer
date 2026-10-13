@@ -5,6 +5,7 @@ import { registerAuthRoutes } from "./auth.js";
 import { registerHealthRoutes } from "./health.js";
 import { registerUploadRoutes } from "./uploads.js";
 import { registerDatasetRoutes } from "./datasets.js";
+import { registerQualityRoutes } from "./quality.js";
 
 export function registerApiRoutes(app) {
   registerHealthRoutes(app);
@@ -12,6 +13,7 @@ export function registerApiRoutes(app) {
   registerAccountRoutes(app);
   registerAdminRoutes(app);
   registerUploadRoutes(app);
+  registerQualityRoutes(app);
   registerDatasetRoutes(app);
   registerActivityLogRoutes(app);
 }

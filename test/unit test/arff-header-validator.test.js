@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateArffHeader } from "../backend/arff/headerValidator.js";
+import { validateArffHeader } from "../../backend/arff/headerValidator.js";
 
 test("accepts ARFF header directives after comments and a UTF-8 BOM", () => {
   const result = validateArffHeader("\uFEFF% dataset comment\n@relation sample\n@attribute value numeric\n@data\n1");

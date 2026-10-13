@@ -5,10 +5,12 @@
  * read files, parse source text, or depend on Express, React, or a database.
  */
 
+import { profileDataset } from "./profiling.js";
+
 const NUMERIC_TYPES = new Set(["numeric", "integer", "real"]);
 
-function isMissing(value) {
-  return value === null || value === undefined || value === "?";
+function isMissing(value, quoted = false) {
+  return value === null || value === undefined || (value === "?" && !quoted);
 }
 
 function isValidNumeric(value, type) {
@@ -132,13 +134,14 @@ export function analyzeDataset(dataset) {
 
   for (const [recordPosition, record] of records.entries()) {
     const values = Array.isArray(record?.values) ? record.values : [];
+    const quotedValues = Array.isArray(record?.quotedValues) ? record.quotedValues : [];
     const recordForErrors = { ...record, index: record?.index ?? recordPosition };
     const normalizedValues = attributes.map((_attribute, index) => values[index] ?? null);
 
     for (let attributeIndex = 0; attributeIndex < attributes.length; attributeIndex += 1) {
       const attribute = attributes[attributeIndex];
       const value = values[attributeIndex];
-      if (isMissing(value)) {
+      if (isMissing(value, quotedValues[attributeIndex])) {
         missingValueCount += 1;
         missingByAttribute[attributeIndex].count += 1;
         attributeResults[attributeIndex].missingCount += 1;
@@ -192,7 +195,8 @@ export function analyzeDataset(dataset) {
       byAttribute: missingByAttribute
     },
     duplicates,
-    valid: typeViolations.length === 0
+    valid: typeViolations.length === 0,
+    statisticalProfile: profileDataset(dataset)
   };
 }
 

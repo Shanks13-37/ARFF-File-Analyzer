@@ -5,6 +5,7 @@ import { logActivity } from "../backend/utils/activity.js";
 import { parseArff } from "../backend/arff/parser.js";
 import { analyzeDataset } from "../backend/arff/analyzer.js";
 import { validateArffHeader } from "../backend/arff/headerValidator.js";
+import { evaluateDataQuality } from "../backend/arff/qualityEvaluator.js";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -98,8 +99,12 @@ export function createUploadHandler({ prismaClient = prisma, activityLogger = lo
     }
 
     const headerCheck = validateArffHeader(file.buffer);
-    if (!headerCheck.valid) {
-      const error = { ...structuredFileError(headerCheck.code, headerCheck.message), line: 1, section: "header" };
+    const headerSource = file.buffer.toString("utf8");
+    const hasParseableHeaderPrefix = /^\s*(?:%[^\r\n]*(?:\r\n|\n|\r|$))*@relation\b/i.test(headerSource)
+      && /@attribute\b/i.test(headerSource)
+      && !/@data\b/i.test(headerSource);
+    if (!headerCheck.valid && !hasParseableHeaderPrefix) {
+      const error = { ...structuredFileError(headerCheck.code, "This is an invalid ARFF file."), line: 1, section: "header" };
       let dataset;
       try {
         dataset = await prismaClient.dataset.create({
@@ -135,6 +140,7 @@ export function createUploadHandler({ prismaClient = prisma, activityLogger = lo
     }
     const valid = parsed.valid && analysis.valid;
     const parserErrors = parsed.errors;
+    const qualityAssessment = evaluateDataQuality({ dataset: parsed.dataset, analysis, statisticalProfile: analysis.statisticalProfile, parserErrors, rules: [] });
     const storedErrors = [
       ...parserErrors.map((error) => error.message),
       ...analysis.typeViolations.map((error) => error.message)
@@ -174,6 +180,7 @@ export function createUploadHandler({ prismaClient = prisma, activityLogger = lo
       file: fileDescriptor(file),
       relation: parsed.dataset.relation,
       ...analysis,
+      qualityAssessment,
       records: parsed.dataset.records,
       errors: parserErrors
     };
