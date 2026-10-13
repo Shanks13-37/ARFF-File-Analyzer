@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeDataset } from "../../backend/arff/analyzer.js";
 import { parseArff } from "../../backend/arff/parser.js";
+import { profileDataset } from "../../backend/arff/profiling.js";
 
 function analyze(source) {
   const parsed = parseArff(source);
@@ -65,6 +66,55 @@ test("handles a single valid observation and no usable values", () => {
   assert.equal(one.statistics.standardDeviation, 0);
   assert.equal(none.statistics, null);
   assert.equal(none.invalidValueCount, 1);
+});
+
+test("uses unavailable percentages for zero denominators", () => {
+  const empty = analyze(`@relation empty
+@attribute amount numeric
+@attribute color {red,blue}
+@data`);
+  assert.equal(empty.statisticalProfile.attributes[0].missingPercentage, null);
+  assert.deepEqual(empty.statisticalProfile.attributes[1].declaredCategories.map((entry) => entry.percentage), [null, null]);
+});
+
+test("keeps extreme finite numeric observations finite where representable", () => {
+  const profile = analyze(`@relation extreme
+@attribute amount numeric
+@data
+1e308
+1.1e308`).statisticalProfile.attributes[0];
+  assert.equal(Number.isFinite(profile.statistics.mean), true);
+  assert.equal(Number.isFinite(profile.statistics.standardDeviation), true);
+  assert.equal(profile.statistics.variance, null);
+  assert.equal(Number.isFinite(profile.statistics.range), true);
+});
+
+test("counts numerically equivalent textual forms as one distinct numeric value", () => {
+  const profile = analyze(`@relation numeric-distinct
+@attribute amount numeric
+@data
+1
+1.0
+1e0`).statisticalProfile.attributes[0];
+  assert.equal(profile.distinctValueCount, 1);
+});
+
+test("reports unsupported declared date formats instead of implying date statistics are available", () => {
+  const profile = analyze(`@relation unsupported-date
+@attribute day date 'MMM dd yyyy'
+@data
+Jan 02 2026`).statisticalProfile.attributes[0];
+  assert.equal(profile.validValueCount, 0);
+  assert.equal(profile.invalidValueCount, 1);
+  assert.equal(profile.date, null);
+  assert.match(profile.dateLimitation, /format is not supported/i);
+});
+
+test("profiles large date columns without spreading the full column into function arguments", () => {
+  const records = Array.from({ length: 150000 }, (_unused, index) => ({ index, values: ["2026-01-01"] }));
+  const profile = profileDataset({ relation: "large", attributes: [{ index: 0, name: "day", type: "date", dateFormat: "yyyy-MM-dd" }], records });
+  assert.equal(profile.attributes[0].date.earliest, "2026-01-01T00:00:00.000Z");
+  assert.equal(profile.attributes[0].date.latest, "2026-01-01T00:00:00.000Z");
 });
 
 test("detects outliers and retains a bounded inspection sample", () => {

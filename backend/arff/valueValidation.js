@@ -38,7 +38,11 @@ export function parseDateValue(value, format) {
     index = match.index + token.length;
   }
   pattern += escapeRegex(format.slice(index));
-  if (tokens.length === 0 || /[A-Za-z]/.test(format.replace(tokenPattern, ""))) return { valid: false, timestamp: null, reason: "unsupported-format" };
+  const supportedTokens = new Set(["yyyy", "yy", "MM", "M", "dd", "d", "HH", "H", "mm", "m", "ss", "s"]);
+  const tokenRuns = format.match(/([yMdHms])\1*/g) || [];
+  if (tokens.length === 0 || /[A-Za-z]/.test(format.replace(tokenPattern, "")) || tokenRuns.some((token) => !supportedTokens.has(token))) {
+    return { valid: false, timestamp: null, reason: "unsupported-format" };
+  }
   const result = new RegExp(`^${pattern}$`).exec(text);
   if (!result) return { valid: false, timestamp: null, reason: "format-mismatch" };
   const parts = { year: 1970, month: 1, day: 1, hour: 0, minute: 0, second: 0 };

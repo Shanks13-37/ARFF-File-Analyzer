@@ -151,11 +151,11 @@ test("reports disabled and no-record rules as skipped and aggregates severity", 
 });
 
 test("bounds failure details while preserving accurate counts", () => {
-  const records = Array.from({ length: FAILURE_DETAIL_LIMIT + 25 }, (_, index) => ({ index, values: [null] }));
+  const records = Array.from({ length: 10000 }, (_, index) => ({ index, values: [null] }));
   const dataset = { relation: "large", attributes: [{ index: 0, name: "required", type: "string" }], records };
   const analysis = analyzeDataset(dataset);
   const result = evaluateDataQuality({ dataset, analysis, statisticalProfile: analysis.statisticalProfile, rules: [rule("required", "required_value", "required", {})] });
-  assert.equal(result.ruleResults[0].failureCount, FAILURE_DETAIL_LIMIT + 25);
+  assert.equal(result.ruleResults[0].failureCount, 10000);
   assert.equal(result.ruleResults[0].failureDetails.length, FAILURE_DETAIL_LIMIT);
   assert.equal(result.ruleResults[0].detailsTruncated, true);
 });

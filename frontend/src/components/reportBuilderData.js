@@ -26,13 +26,15 @@ export function getReportDatasetKey(entry, index = 0) {
 }
 
 export function sanitizeReportFilename(title) {
-  const safe = String(title || "ARFF Analysis Report")
+  let safe = String(title || "ARFF Analysis Report")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9._-]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
-  return (safe || "arff-analysis-report") + ".pdf";
+  if (!safe || /^\.+$/.test(safe)) safe = "arff-analysis-report";
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(safe)) safe = "arff-" + safe;
+  return safe + ".pdf";
 }
 
 function defaultDistributionAttribute(attributes) {

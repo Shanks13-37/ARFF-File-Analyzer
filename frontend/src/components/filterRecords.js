@@ -1,3 +1,5 @@
+import { isValidNumeric } from "../../../backend/arff/valueValidation.js";
+
 const NUMERIC_TYPES = new Set(["numeric", "integer", "real"]);
 
 function isMissing(record, index) {
@@ -32,7 +34,10 @@ export function filterRecords(records = [], attribute, criteria = {}) {
       const parsed = parseNumber(rawValue, "Exact value");
       if (parsed.error) return { records: [], error: parsed.error };
       return {
-        records: sourceRecords.filter((record) => !isMissing(record, attributeIndex) && Number(record.values[attributeIndex]) === parsed.value),
+        records: sourceRecords.filter((record) => {
+          const value = record?.values?.[attributeIndex];
+          return !isMissing(record, attributeIndex) && isValidNumeric(value, type) && Number(String(value).trim()) === parsed.value;
+        }),
         error: null
       };
     }
@@ -50,7 +55,8 @@ export function filterRecords(records = [], attribute, criteria = {}) {
       records: sourceRecords.filter((record) => {
         const value = record.values?.[attributeIndex];
         if (isMissing(record, attributeIndex)) return false;
-        const number = Number(value);
+        if (!isValidNumeric(value, type)) return false;
+        const number = Number(String(value).trim());
         return Number.isFinite(number) &&
           (min.value === null || number >= min.value) &&
           (max.value === null || number <= max.value);

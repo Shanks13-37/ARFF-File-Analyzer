@@ -42,6 +42,21 @@ test("report data includes only explicitly selected dataset keys", () => {
   assert.equal(report.datasets[0].result.records[0].values[0], "51");
 });
 
+test("combined report data contains each selected batch result exactly once", () => {
+  const report = buildReportData({
+    datasets: [
+      { key: "first", fileName: "first.arff", result: makeResult("first.arff", 1) },
+      { key: "second", fileName: "second.arff", result: makeResult("second.arff", 2) },
+      { key: "unselected", fileName: "unselected.arff", result: makeResult("unselected.arff", 3) }
+    ],
+    selectedKeys: ["second", "first"]
+  });
+  assert.deepEqual(report.datasets.map((dataset) => dataset.fileName), ["first.arff", "second.arff"]);
+  assert.deepEqual(report.datasets.map((dataset) => dataset.result.records[0].values[0]), ["2", "3"]);
+  const { doc } = createProfessionalReportPdf(report);
+  assert.ok(doc.getNumberOfPages() >= 3, "combined report has a cover and one dataset section per selected result");
+});
+
 test("section choices control content and optional record samples are bounded", () => {
   const source = makeResult("sample.arff");
   source.records = Array.from({ length: 30 }, (_, index) => ({ index, values: [String(index)], quotedValues: [false] }));
@@ -91,6 +106,8 @@ test("quality overrides map to the chosen dataset and missing content is disclos
 test("filename sanitization and PDF pagination work for long reports", () => {
   assert.equal(sanitizeReportFilename(" /Unsafe report:* "), "Unsafe-report.pdf");
   assert.equal(sanitizeReportFilename("///"), "arff-analysis-report.pdf");
+  assert.equal(sanitizeReportFilename("CON"), "arff-CON.pdf");
+  assert.equal(sanitizeReportFilename(".."), "arff-analysis-report.pdf");
   const result = makeResult("long.arff");
   result.attributes = Array.from({ length: 90 }, (_, index) => ({ index, name: "attribute_" + index + "_with_a_long_schema_name", type: "string", nominalValues: [] }));
   result.summary.attributeCount = result.attributes.length;
@@ -102,4 +119,33 @@ test("filename sanitization and PDF pagination work for long reports", () => {
 
 test("empty or unavailable selections fail explicitly rather than creating an empty PDF", () => {
   assert.throws(() => createProfessionalReportPdf({ datasets: [] }), /Select at least one/);
+});
+
+test("PDF generation honors section selection and preserves parser diagnostics", () => {
+  const result = makeResult("diagnostic.arff");
+  result.errors = [{ line: 7, section: "data", code: "WRONG_FIELD_COUNT", message: "Row has the wrong number of fields." }];
+  const sections = { ...DEFAULT_REPORT_SECTIONS, executiveSummary: false, overview: false, qualityOverview: false, qualityMetrics: false, duplicates: false, profiling: false, customRules: false, visualExploration: false, recordSample: false };
+  const report = buildReportData({ datasets: [{ key: "diagnostic", result }], selectedKeys: ["diagnostic"], sections });
+  const { doc } = createProfessionalReportPdf(report);
+  const content = doc.internal.pages.flat().join("");
+  assert.match(content, /Parsing and validation results/);
+  assert.match(content, /WRONG_FIELD_COUNT/);
+  assert.doesNotMatch(content, /Statistical profiling/);
+  assert.doesNotMatch(content, /Executive summary/);
+});
+
+test("PDF sample explicitly discloses unfiltered rows and distinguishes a quoted question mark", () => {
+  const result = makeResult("sample.arff");
+  result.attributes.push({ index: 1, name: "label", type: "string", nominalValues: [] });
+  result.records[0].values.push("?");
+  result.records[0].quotedValues.push(true);
+  result.records[1].values.push(null);
+  result.records[1].quotedValues.push(false);
+  const sections = { ...DEFAULT_REPORT_SECTIONS, executiveSummary: false, overview: false, validation: false, qualityOverview: false, qualityMetrics: false, duplicates: false, profiling: false, customRules: false, visualExploration: false, recordSample: true };
+  const report = buildReportData({ datasets: [{ key: "sample", result }], selectedKeys: ["sample"], sections });
+  const { doc } = createProfessionalReportPdf(report);
+  const content = doc.internal.pages.flat().join("");
+  assert.match(content, /unfiltered source dataset/);
+  assert.match(content, /Missing markers display/);
+  assert.match(content, /\\\(literal\\\)/);
 });

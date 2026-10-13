@@ -65,11 +65,15 @@ export function validateQualityRules(rules, attributes) {
 }
 
 function recordEntries(dataset, attributeIndex) {
-  return (dataset.records || []).map((record, position) => ({
-    recordIndex: record?.index ?? position,
-    value: record?.values?.[attributeIndex],
-    missing: isMissing(record?.values?.[attributeIndex], record?.quotedValues?.[attributeIndex])
-  }));
+  return (function* entries() {
+    for (const [position, record] of (dataset.records || []).entries()) {
+      yield {
+        recordIndex: record?.index ?? position,
+        value: record?.values?.[attributeIndex],
+        missing: isMissing(record?.values?.[attributeIndex], record?.quotedValues?.[attributeIndex])
+      };
+    }
+  })();
 }
 
 function evaluateRule(rule, dataset) {
@@ -77,52 +81,61 @@ function evaluateRule(rule, dataset) {
   const attribute = rule.type === "row_count" ? null : dataset.attributes.find((entry) => entry.name === rule.config.attribute);
   const values = attribute ? recordEntries(dataset, attribute.index) : [];
   const failures = [];
+  let failureCount = 0;
+  const addFailure = (entry, reason) => {
+    failureCount += 1;
+    if (failures.length < FAILURE_DETAIL_LIMIT) failures.push({ ...entry, reason });
+  };
   let explanation = "All checked values satisfy this rule.";
   const resultRule = { id: rule.id, name: rule.name.trim(), type: rule.type, severity: rule.severity, enabled: rule.enabled !== false, config: { ...rule.config } };
   if (records.length === 0 && rule.type !== "row_count") return { ...resultRule, status: "skipped", failureCount: 0, explanation: "No records are available to evaluate this attribute rule.", failureDetails: [], detailLimit: FAILURE_DETAIL_LIMIT, detailsTruncated: false };
   if (rule.type === "required_value") {
-    values.filter((entry) => entry.missing).forEach((entry) => failures.push({ ...entry, reason: "Value is missing." }));
-    explanation = failures.length ? `${failures.length} record(s) have a missing value.` : explanation;
+    for (const entry of values) if (entry.missing) addFailure(entry, "Value is missing.");
+    explanation = failureCount ? `${failureCount} record(s) have a missing value.` : explanation;
   } else if (rule.type === "max_missing_percentage") {
-    const count = values.filter((entry) => entry.missing).length;
+    let count = 0;
+    for (const entry of values) if (entry.missing) count += 1;
     const percentage = records.length ? (count / records.length) * 100 : null;
-    if (percentage !== null && percentage > rule.config.threshold) values.filter((entry) => entry.missing).forEach((entry) => failures.push({ ...entry, reason: `Missing percentage exceeds ${rule.config.threshold}%.` }));
+    if (percentage !== null && percentage > rule.config.threshold) {
+      for (const entry of recordEntries(dataset, attribute.index)) if (entry.missing) addFailure(entry, `Missing percentage exceeds ${rule.config.threshold}%.`);
+    }
     explanation = percentage === null ? "Missingness is unavailable because the dataset has no records." : `${percentage.toFixed(2)}% missing; allowed maximum is ${rule.config.threshold}%.`;
   } else if (rule.type === "numeric_range") {
     for (const entry of values) {
       if (entry.missing) continue;
-      if (!isValidNumeric(entry.value, attribute.type)) { failures.push({ ...entry, reason: "Value is not valid for this numeric attribute." }); continue; }
+      if (!isValidNumeric(entry.value, attribute.type)) { addFailure(entry, "Value is not valid for this numeric attribute."); continue; }
       const number = Number(String(entry.value).trim());
       const below = rule.config.minimum != null && (rule.config.inclusiveMinimum === false ? number <= rule.config.minimum : number < rule.config.minimum);
       const above = rule.config.maximum != null && (rule.config.inclusiveMaximum === false ? number >= rule.config.maximum : number > rule.config.maximum);
-      if (below || above) failures.push({ ...entry, reason: "Value is outside the configured range." });
+      if (below || above) addFailure(entry, "Value is outside the configured range.");
     }
-    explanation = failures.length ? `${failures.length} non-missing value(s) are invalid or outside the configured range.` : explanation;
+    explanation = failureCount ? `${failureCount} non-missing value(s) are invalid or outside the configured range.` : explanation;
   } else if (rule.type === "unique_values") {
     const firstRecords = new Map();
     for (const entry of values) {
       if (entry.missing) continue;
       const key = String(entry.value);
-      if (firstRecords.has(key)) failures.push({ ...entry, reason: `Duplicates record ${firstRecords.get(key)}.` });
+      if (firstRecords.has(key)) addFailure(entry, `Duplicates record ${firstRecords.get(key)}.`);
       else firstRecords.set(key, entry.recordIndex);
     }
-    explanation = failures.length ? `${failures.length} repeated occurrence(s) found; missing values are excluded.` : "All non-missing values are unique.";
+    explanation = failureCount ? `${failureCount} repeated occurrence(s) found; missing values are excluded.` : "All non-missing values are unique.";
   } else if (rule.type === "allowed_values") {
     const allowed = new Set(rule.config.values);
-    values.filter((entry) => !entry.missing && !allowed.has(entry.value)).forEach((entry) => failures.push({ ...entry, reason: "Value is not in the allowed list." }));
-    explanation = failures.length ? `${failures.length} observed value(s) are not in the allowed list.` : explanation;
+    for (const entry of values) if (!entry.missing && !allowed.has(entry.value)) addFailure(entry, "Value is not in the allowed list.");
+    explanation = failureCount ? `${failureCount} observed value(s) are not in the allowed list.` : explanation;
   } else if (rule.type === "string_length") {
-    values.filter((entry) => !entry.missing).forEach((entry) => {
+    for (const entry of values) {
+      if (entry.missing) continue;
       const length = Array.from(String(entry.value)).length;
-      if (length < rule.config.minimum || length > rule.config.maximum) failures.push({ ...entry, reason: `String length ${length} is outside ${rule.config.minimum}–${rule.config.maximum}.` });
-    });
-    explanation = failures.length ? `${failures.length} string value(s) are outside the configured length.` : explanation;
+      if (length < rule.config.minimum || length > rule.config.maximum) addFailure(entry, `String length ${length} is outside ${rule.config.minimum}–${rule.config.maximum}.`);
+    }
+    explanation = failureCount ? `${failureCount} string value(s) are outside the configured length.` : explanation;
   } else if (rule.type === "row_count") {
     const count = records.length;
-    if ((rule.config.minimum !== undefined && count < rule.config.minimum) || (rule.config.maximum !== undefined && count > rule.config.maximum)) failures.push({ recordIndex: null, value: count, reason: "Dataset row count is outside the configured bounds." });
-    explanation = failures.length ? `${count} records are outside the configured row-count bounds.` : `${count} records satisfy the configured row-count bounds.`;
+    if ((rule.config.minimum !== undefined && count < rule.config.minimum) || (rule.config.maximum !== undefined && count > rule.config.maximum)) addFailure({ recordIndex: null, value: count }, "Dataset row count is outside the configured bounds.");
+    explanation = failureCount ? `${count} records are outside the configured row-count bounds.` : `${count} records satisfy the configured row-count bounds.`;
   }
-  return { ...resultRule, status: failures.length ? "failed" : "passed", failureCount: failures.length, explanation, failureDetails: failures.slice(0, FAILURE_DETAIL_LIMIT).map(({ recordIndex, value, reason }) => ({ recordIndex, attributeName: attribute?.name ?? null, value: value === undefined ? null : (typeof value === "string" && value.length > 500 ? value.slice(0, 500) : value), valueTruncated: typeof value === "string" && value.length > 500, reason })), detailLimit: FAILURE_DETAIL_LIMIT, detailsTruncated: failures.length > FAILURE_DETAIL_LIMIT };
+  return { ...resultRule, status: failureCount ? "failed" : "passed", failureCount, explanation, failureDetails: failures.map(({ recordIndex, value, reason }) => ({ recordIndex, attributeName: attribute?.name ?? null, value: value === undefined ? null : (typeof value === "string" && value.length > 500 ? value.slice(0, 500) : value), valueTruncated: typeof value === "string" && value.length > 500, reason })), detailLimit: FAILURE_DETAIL_LIMIT, detailsTruncated: failureCount > FAILURE_DETAIL_LIMIT };
 }
 
 export function evaluateDataQuality({ dataset, analysis, statisticalProfile, parserErrors = [], rules = [] }) {

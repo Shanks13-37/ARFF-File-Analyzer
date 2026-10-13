@@ -71,6 +71,19 @@ test("supports integer and real numeric filters and rejects reversed ranges", ()
   assert.match(filterRecords(records, numeric, { mode: "range", min: "30", max: "18" }).error, /minimum cannot be greater/i);
 });
 
+test("integer filters exclude fractional type violations while real filters retain decimals", () => {
+  const values = [
+    { index: 1, values: ["2"] },
+    { index: 2, values: ["2.5"] },
+    { index: 3, values: ["Infinity"] },
+    { index: 4, values: ["bad"] }
+  ];
+  const integer = { index: 0, type: "integer" };
+  const real = { index: 0, type: "real" };
+  assert.deepEqual(filterRecords(values, integer, { mode: "range", min: "0", max: "3" }).records.map((record) => record.index), [1]);
+  assert.deepEqual(filterRecords(values, real, { mode: "exact", value: "2.5" }).records.map((record) => record.index), [2]);
+});
+
 test("rejects invalid bounds and handles absent records", () => {
   assert.match(filterRecords(records, numeric, { mode: "range", min: "x" }).error, /minimum must be a valid number/i);
   assert.deepEqual(filterRecords(null, numeric, { mode: "exact", value: "18" }).records, []);

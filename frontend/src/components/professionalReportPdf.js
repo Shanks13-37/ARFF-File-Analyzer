@@ -82,12 +82,13 @@ export function createProfessionalReportPdf(report) {
   }
 
   function heading(title, reserve = 24, size = 13) {
-    ensure(size + 12 + reserve);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(size);
     doc.setTextColor(30, 58, 138);
-    doc.text(compact(title, 180), MARGIN, y);
-    y += size + 8;
+    const lines = doc.splitTextToSize(compact(title, 600), CONTENT_WIDTH);
+    ensure(lines.length * (size + 2) + 8 + reserve);
+    doc.text(lines, MARGIN, y);
+    y += lines.length * (size + 2) + 8;
     doc.setFont("helvetica", "normal");
   }
 
@@ -156,6 +157,10 @@ export function createProfessionalReportPdf(report) {
     const barWidth = Math.max(5, Math.min(32, slot * 0.58));
     doc.setDrawColor(148, 163, 184);
     doc.line(left, baseline, left + chartWidth, baseline);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(71, 85, 105);
+    doc.text("Count", MARGIN + 2, baseline - 42, { angle: 90, align: "center" });
     data.forEach((item, index) => {
       const value = Math.max(0, Number(item.value) || 0);
       const height = value / max * 88;
@@ -169,7 +174,9 @@ export function createProfessionalReportPdf(report) {
       const label = compact(item.label, 32).replace(/\n/g, " ");
       doc.text(doc.splitTextToSize(label, Math.max(22, slot - 2)).slice(0, 2), x + barWidth / 2, baseline + 10, { align: "center" });
     });
-    y = baseline + 27;
+    doc.setFontSize(7.5);
+    doc.text("Category or interval", left + chartWidth / 2, baseline + 27, { align: "center" });
+    y = baseline + 38;
   }
 
   function addUnavailability(label, reason) {
@@ -179,8 +186,9 @@ export function createProfessionalReportPdf(report) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(30, 58, 138);
-  doc.text(doc.splitTextToSize(compact(report.metadata.title, 130), CONTENT_WIDTH), MARGIN, y);
-  y += 32;
+  const titleLines = doc.splitTextToSize(compact(report.metadata.title, 600), CONTENT_WIDTH);
+  doc.text(titleLines, MARGIN, y);
+  y += titleLines.length * 27 + 5;
   paragraph("Generated: " + reportTime(report.metadata.generatedAt));
   if (report.metadata.author) paragraph("Prepared by: " + compact(report.metadata.author, 140));
   if (report.metadata.description) paragraph(report.metadata.description, { size: 10, gap: 8 });
@@ -317,11 +325,13 @@ export function createProfessionalReportPdf(report) {
             entry.name, entry.statistics.q1, entry.statistics.q3, entry.statistics.iqr, entry.statistics.percentile5, entry.statistics.percentile95, entry.outliers?.count ?? 0, entry.outliers?.method || "1.5 × IQR"
           ]), [105, 43, 43, 43, 54, 58, 78, CONTENT_WIDTH - 424], { fontSize: 7.2 });
         }
-        profiles.filter((entry) => entry.frequencies || entry.date).forEach((entry) => {
+        profiles.filter((entry) => entry.frequencies || entry.date || entry.type === "date").forEach((entry) => {
           heading(entry.name + " · " + entry.type, 28, 9.5);
-          if (entry.date) {
+          if (entry.type === "date" && entry.date) {
             if (entry.date.earliest && entry.date.latest) paragraph("Earliest: " + entry.date.earliest + " · Latest: " + entry.date.latest + " · Range: " + display(entry.date.rangeMilliseconds) + " ms · Parsing: " + entry.date.parsing, { size: 8 });
             else paragraph(entry.dateLimitation || "Date statistics unavailable.");
+          } else if (entry.type === "date") {
+            paragraph(entry.dateLimitation || "No interpretable valid dates are available for the declared date format.", { size: 8 });
           }
           if (entry.type === "nominal" && Array.isArray(entry.declaredCategories)) {
             const declared = entry.declaredCategories;
@@ -420,11 +430,20 @@ export function createProfessionalReportPdf(report) {
     doc.setTextColor(100, 116, 139);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
+    const fitLine = (value, maxWidth) => {
+      const text = compact(value, 1000).replace(/\s+/g, " ");
+      if (doc.getTextWidth(text) <= maxWidth) return text;
+      let end = text.length;
+      while (end > 0 && doc.getTextWidth(text.slice(0, end) + "…") > maxWidth) end -= 1;
+      return text.slice(0, end) + "…";
+    };
+    const headerTitleWidth = CONTENT_WIDTH * 0.62;
+    const headerDatasetWidth = CONTENT_WIDTH - headerTitleWidth - 12;
     doc.line(MARGIN, 42, PAGE_WIDTH - MARGIN, 42);
-    doc.text(compact(report.metadata.title, 82), MARGIN, 32);
-    doc.text(compact(pageLabels.get(page) || "ARFF analysis", 65), PAGE_WIDTH - MARGIN, 32, { align: "right" });
+    doc.text(fitLine(report.metadata.title, headerTitleWidth), MARGIN, 32);
+    doc.text(fitLine(pageLabels.get(page) || "ARFF analysis", headerDatasetWidth), PAGE_WIDTH - MARGIN, 32, { align: "right" });
     doc.line(MARGIN, PAGE_HEIGHT - 34, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 34);
-    doc.text("Generated " + reportTime(report.metadata.generatedAt), MARGIN, PAGE_HEIGHT - 21);
+    doc.text(fitLine("Generated " + reportTime(report.metadata.generatedAt), CONTENT_WIDTH * 0.68), MARGIN, PAGE_HEIGHT - 21);
     doc.text("Page " + page + " of " + pages, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 21, { align: "right" });
   }
   return { doc, filename: sanitizeReportFilename(report.metadata.title) };
