@@ -1,7 +1,8 @@
 const NUMERIC_TYPES = new Set(["numeric", "integer", "real"]);
 
-function isMissing(value) {
-  return value === null || value === undefined || value === "?";
+function isMissing(record, index) {
+  const value = record?.values?.[index];
+  return value === null || value === undefined || (value === "?" && record?.quotedValues?.[index] !== true);
 }
 
 function parseNumber(value, label) {
@@ -31,7 +32,7 @@ export function filterRecords(records = [], attribute, criteria = {}) {
       const parsed = parseNumber(rawValue, "Exact value");
       if (parsed.error) return { records: [], error: parsed.error };
       return {
-        records: sourceRecords.filter((record) => !isMissing(record.values?.[attributeIndex]) && Number(record.values[attributeIndex]) === parsed.value),
+        records: sourceRecords.filter((record) => !isMissing(record, attributeIndex) && Number(record.values[attributeIndex]) === parsed.value),
         error: null
       };
     }
@@ -48,7 +49,7 @@ export function filterRecords(records = [], attribute, criteria = {}) {
     return {
       records: sourceRecords.filter((record) => {
         const value = record.values?.[attributeIndex];
-        if (isMissing(value)) return false;
+        if (isMissing(record, attributeIndex)) return false;
         const number = Number(value);
         return Number.isFinite(number) &&
           (min.value === null || number >= min.value) &&
@@ -58,11 +59,11 @@ export function filterRecords(records = [], attribute, criteria = {}) {
     };
   }
 
-  if (String(rawValue) === "") return { records: [...sourceRecords], error: null };
+  if (String(rawValue) === "" && criteria.allowEmpty !== true) return { records: [...sourceRecords], error: null };
 
   if (type === "nominal" || type === "date") {
     return {
-      records: sourceRecords.filter((record) => !isMissing(record.values?.[attributeIndex]) && String(record.values[attributeIndex]) === String(rawValue)),
+      records: sourceRecords.filter((record) => !isMissing(record, attributeIndex) && String(record.values[attributeIndex]) === String(rawValue)),
       error: null
     };
   }
@@ -70,7 +71,11 @@ export function filterRecords(records = [], attribute, criteria = {}) {
   if (type === "string") {
     const query = String(rawValue).toLowerCase();
     return {
-      records: sourceRecords.filter((record) => !isMissing(record.values?.[attributeIndex]) && String(record.values[attributeIndex]).toLowerCase().includes(query)),
+      records: sourceRecords.filter((record) => {
+        if (isMissing(record, attributeIndex)) return false;
+        const observed = String(record.values[attributeIndex]);
+        return criteria.exact === true ? observed === String(rawValue) : observed.toLowerCase().includes(query);
+      }),
       error: null
     };
   }

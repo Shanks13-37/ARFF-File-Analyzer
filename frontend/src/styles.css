@@ -822,6 +822,256 @@ main {
   font-size: 12px;
 }
 
+.interactiveExplorer {
+  gap: 18px;
+}
+
+.explorationHeading,
+.explorationPanelHeading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.explorationHeading h2,
+.explorationPanelHeading h3 {
+  color: #1e3a8a;
+  margin: 0;
+}
+
+.explorationHeading h2 {
+  font-size: 1.12rem;
+}
+
+.explorationIntro,
+.explorationPanelHeading p,
+.explorationCaption {
+  color: #64748b;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  margin: 5px 0 0;
+}
+
+.explorationRecordCount {
+  background: #f1f5f9;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+
+.explorationPanel {
+  border-top: 1px solid #e0f2fe;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 16px;
+}
+
+.explorationPanelHeading {
+  align-items: end;
+}
+
+.explorationPanelHeading h3 {
+  font-size: 0.97rem;
+}
+
+.explorationPanelHeading .field {
+  flex: 0 1 300px;
+}
+
+.explorationPanelHeading select,
+.explorationControls select {
+  background: #f8fafc;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  color: #1e293b;
+  font: inherit;
+  min-height: 40px;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.explorationChartScroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.explorationSvg {
+  display: block;
+  height: auto;
+  min-width: 620px;
+  width: 100%;
+}
+
+.categorySvg {
+  min-width: 620px;
+}
+
+.explorationAxis {
+  stroke: #94a3b8;
+  stroke-width: 1;
+}
+
+.explorationBar {
+  fill: #2563eb;
+  opacity: 0.82;
+}
+
+.explorationCategory {
+  cursor: pointer;
+  outline: none;
+}
+
+.explorationCategory:focus .explorationBar,
+.explorationCategory:hover .explorationBar {
+  fill: #1d4ed8;
+  opacity: 1;
+  stroke: #0f172a;
+  stroke-width: 2;
+}
+
+.explorationTick,
+.explorationValue,
+.explorationAxisLabel {
+  fill: #475569;
+  font-size: 11px;
+}
+
+.explorationAxisLabel {
+  fill: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.explorationLine {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 2.5;
+}
+
+.explorationPoint,
+.explorationScatterPoint {
+  fill: #2563eb;
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.explorationScatterPoint {
+  fill: rgba(37, 99, 235, 0.68);
+}
+
+.explorationScatterPoint:hover {
+  fill: #b45309;
+}
+
+.explorationControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.explorationControls .field {
+  flex: 1 1 220px;
+}
+
+.correlationAttributePicker {
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.correlationAttributePicker legend {
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0 5px;
+}
+
+.correlationAttributePicker label {
+  align-items: center;
+  color: #334155;
+  display: inline-flex;
+  font-size: 0.82rem;
+  gap: 6px;
+  max-width: 220px;
+}
+
+.correlationAttributePicker label span {
+  overflow-wrap: anywhere;
+}
+
+.correlationTable {
+  border-collapse: separate;
+  border-spacing: 3px;
+  min-width: max-content;
+  width: 100%;
+}
+
+.correlationTable th,
+.correlationTable td {
+  border-radius: 7px;
+  max-width: 180px;
+  overflow: hidden;
+  padding: 7px;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.correlationTable th {
+  color: #334155;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.correlationTable td {
+  color: #0f172a;
+  min-width: 72px;
+}
+
+.correlationTable td span,
+.correlationTable td small {
+  display: block;
+}
+
+.correlationTable td span {
+  font-weight: 800;
+}
+
+.correlationTable td small {
+  color: #334155;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 640px) {
+  .explorationHeading,
+  .explorationPanelHeading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .explorationPanelHeading .field {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .explorationRecordCount {
+    align-self: flex-start;
+  }
+
+  .explorationSvg {
+    min-width: 600px;
+  }
+}
+
 .reportPreview {
   display: grid;
   gap: 18px;

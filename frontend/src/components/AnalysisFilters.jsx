@@ -6,7 +6,7 @@ function initialCriteria() {
   return { mode: "exact", value: "", min: "", max: "" };
 }
 
-export default function AnalysisFilters({ attributes = [], records = [], onFilteredRecords }) {
+export default function AnalysisFilters({ attributes = [], records = [], onFilteredRecords, quickFilter = null, onQuickFilterClear = () => {} }) {
   const [selectedAttribute, setSelectedAttribute] = useState("");
   const [criteria, setCriteria] = useState(initialCriteria);
   const [filteredRecords, setFilteredRecords] = useState(records);
@@ -24,12 +24,25 @@ export default function AnalysisFilters({ attributes = [], records = [], onFilte
     onFilteredRecords(records);
   }, [records, onFilteredRecords]);
 
+  useEffect(() => {
+    if (!quickFilter) return;
+    const selected = attributes.find((entry, index) => Number(entry.index ?? index) === quickFilter.attributeIndex);
+    if (!selected) return;
+    setSelectedAttribute(String(selected.index ?? attributes.indexOf(selected)));
+    setCriteria({ mode: "exact", value: quickFilter.value, min: "", max: "", exact: true, allowEmpty: true });
+    setError("");
+    const filtered = filterRecords(records, selected, { mode: "exact", value: quickFilter.value, exact: true, allowEmpty: true });
+    setFilteredRecords(filtered.records);
+    onFilteredRecords(filtered.records);
+  }, [quickFilter, attributes, records, onFilteredRecords]);
+
   function changeAttribute(event) {
     setSelectedAttribute(event.target.value);
     setCriteria(initialCriteria());
     setError("");
     setFilteredRecords(records);
     onFilteredRecords(records);
+    onQuickFilterClear();
   }
 
   function applyFilter(event) {
@@ -46,6 +59,7 @@ export default function AnalysisFilters({ attributes = [], records = [], onFilte
     }
     setFilteredRecords(result.records);
     onFilteredRecords(result.records);
+    onQuickFilterClear();
   }
 
   function clearFilter() {
@@ -54,6 +68,7 @@ export default function AnalysisFilters({ attributes = [], records = [], onFilte
     setError("");
     setFilteredRecords(records);
     onFilteredRecords(records);
+    onQuickFilterClear();
   }
 
   function updateCriteria(field, value) {
@@ -103,7 +118,7 @@ export default function AnalysisFilters({ attributes = [], records = [], onFilte
         )}
 
         {(type === "string" || type === "date") && (
-          <label className="field"><span>{type === "date" ? "Date value" : "Text contains"}</span><input value={criteria.value} onChange={(event) => updateCriteria("value", event.target.value)} /></label>
+          <label className="field"><span>{type === "date" ? "Date value" : criteria.exact ? "Exact category" : "Text contains"}</span><input value={criteria.value} onChange={(event) => updateCriteria("value", event.target.value)} /></label>
         )}
 
         <div className="filterButtons">
@@ -112,7 +127,7 @@ export default function AnalysisFilters({ attributes = [], records = [], onFilte
         </div>
       </form>
       {error && <div className="result failure">{error}</div>}
-      <p className="filterMatchCount">Showing <strong>{filteredRecords.length}</strong> of {records.length} records.</p>
+      <p className="filterMatchCount">Showing <strong>{filteredRecords.length}</strong> of {records.length} records.{selectedAttribute && (criteria.value !== "" || criteria.allowEmpty) ? <> Active filter: <strong>{attribute?.name} = {criteria.value === "" ? "(empty string)" : criteria.value}</strong>.</> : null}</p>
     </div>
   );
 }

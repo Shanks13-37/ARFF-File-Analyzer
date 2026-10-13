@@ -8,6 +8,7 @@ import RecordTable from "./RecordTable.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import StatisticalProfile from "./StatisticalProfile.jsx";
 import QualityAssessment from "./QualityAssessment.jsx";
+import InteractiveExplorer from "./InteractiveExplorer.jsx";
 
 const ROWS_PER_PAGE = 5;
 
@@ -20,6 +21,7 @@ export default function AnalysisResult({ result, token, sourceFile, qualityRules
   const missingByAttribute = Array.isArray(result.missingValues?.byAttribute) ? result.missingValues.byAttribute : [];
   const duplicates = Array.isArray(result.duplicates) ? result.duplicates : [];
   const [filteredRecords, setFilteredRecords] = useState(records);
+  const [quickFilter, setQuickFilter] = useState(null);
   const [missingPage, setMissingPage] = useState(1);
   const [duplicatePage, setDuplicatePage] = useState(1);
   const handleFilteredRecords = useCallback((nextRecords) => setFilteredRecords(nextRecords), []);
@@ -30,6 +32,7 @@ export default function AnalysisResult({ result, token, sourceFile, qualityRules
 
   useEffect(() => {
     setFilteredRecords(records);
+    setQuickFilter(null);
     setMissingPage(1);
     setDuplicatePage(1);
   }, [result]);
@@ -64,7 +67,8 @@ export default function AnalysisResult({ result, token, sourceFile, qualityRules
 
       <AttributeTable attributes={attributes} />
 
-      <AnalysisFilters attributes={attributes} records={records} onFilteredRecords={handleFilteredRecords} />
+      <AnalysisFilters attributes={attributes} records={records} onFilteredRecords={handleFilteredRecords} quickFilter={quickFilter} onQuickFilterClear={() => setQuickFilter(null)} />
+      <InteractiveExplorer attributes={attributes} records={filteredRecords} onCategorySelect={setQuickFilter} />
 
       <div className="analysisSection">
         <h2>Missing values</h2>
