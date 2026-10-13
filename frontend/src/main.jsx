@@ -658,6 +658,12 @@ function UploadWorkspace({ token, user, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const currentResult = uploadResults[activeResultIndex] || null;
+  const reportDatasets = uploadResults.map((entry, index) => ({
+    key: String(entry.analysisResult?.datasetId ?? (index + ":" + entry.fileName)),
+    fileName: entry.fileName,
+    result: entry.analysisResult,
+    sourceFile: selectedFiles[index] || null
+  }));
 
   async function submitUpload(event) {
     event.preventDefault();
@@ -867,7 +873,7 @@ function UploadWorkspace({ token, user, onLogout }) {
         )}
 
         {currentResult?.analysisResult && (
-          <AnalysisResult key={`${activeResultIndex}-${currentResult.analysisResult.datasetId || currentResult.fileName}`} result={currentResult.analysisResult} token={token} sourceFile={selectedFiles[activeResultIndex]} qualityRules={qualityRules} onQualityRulesChange={setQualityRules} reportExportMode />
+          <AnalysisResult key={`${activeResultIndex}-${currentResult.analysisResult.datasetId || currentResult.fileName}`} result={currentResult.analysisResult} token={token} sourceFile={selectedFiles[activeResultIndex]} qualityRules={qualityRules} onQualityRulesChange={setQualityRules} reportDatasets={reportDatasets} activeReportDatasetKey={reportDatasets[activeResultIndex]?.key} reportExportMode />
         )}
 
       </div>

@@ -9,10 +9,11 @@ import PaginationControls from "./PaginationControls.jsx";
 import StatisticalProfile from "./StatisticalProfile.jsx";
 import QualityAssessment from "./QualityAssessment.jsx";
 import InteractiveExplorer from "./InteractiveExplorer.jsx";
+import ReportBuilder from "./ReportBuilder.jsx";
 
 const ROWS_PER_PAGE = 5;
 
-export default function AnalysisResult({ result, token, sourceFile, qualityRules, onQualityRulesChange, reportExportMode = false }) {
+export default function AnalysisResult({ result, token, sourceFile, qualityRules, onQualityRulesChange, reportExportMode = false, reportDatasets = [], activeReportDatasetKey }) {
   if (!result) return null;
 
   const violations = Array.isArray(result.typeViolations) ? result.typeViolations : [];
@@ -40,6 +41,7 @@ export default function AnalysisResult({ result, token, sourceFile, qualityRules
   return (
     <div className="analysisResults" aria-live="polite">
       <AnalysisSummary result={result} />
+      <ReportBuilder datasets={reportDatasets} activeDatasetKey={activeReportDatasetKey} token={token} qualityRules={qualityRules} filteredRecordCount={filteredRecords.length} totalRecordCount={records.length} />
       <ErrorList errors={Array.isArray(result.errors) ? result.errors : []} />
 
       <StatisticalProfile profile={result.statisticalProfile} />

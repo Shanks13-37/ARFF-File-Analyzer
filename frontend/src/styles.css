@@ -2052,3 +2052,286 @@ footer {
     width: 330px;
   }
 }
+
+.reportBuilder {
+  gap: 16px;
+}
+
+.reportBuilderHeading,
+.reportBuilderActions,
+.reportSelectionActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.reportBuilderHeading h2 {
+  color: #1e3a8a;
+  font-size: 1.12rem;
+  margin: 0;
+}
+
+.reportBuilderHeading p:not(.eyebrow),
+.reportBuilderActions > span,
+.reportReview p,
+.reportSampleOptions p {
+  color: #64748b;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  margin: 5px 0 0;
+}
+
+.reportBuilderForm {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.reportBuilderForm fieldset {
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  min-width: 0;
+  padding: 13px;
+}
+
+.reportBuilderForm fieldset legend {
+  color: #334155;
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 0 6px;
+}
+
+.reportMetadataFields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.reportMetadataFields label,
+.reportSampleOptions label {
+  color: #334155;
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.reportMetadataFields input,
+.reportMetadataFields textarea,
+.reportSampleOptions select,
+.reportDistributionChoice select {
+  background: #f8fafc;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  color: #1e293b;
+  font: inherit;
+  min-height: 40px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.reportMetadataFields textarea {
+  resize: vertical;
+}
+
+.reportDescriptionField {
+  grid-column: 1 / -1;
+}
+
+.reportSelectionActions {
+  justify-content: flex-start;
+}
+
+.reportSelectionActions > span {
+  color: #475569;
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+.reportDatasetList {
+  display: grid;
+  gap: 7px;
+  max-height: 260px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.reportDatasetOption {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px 10px;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  padding: 9px 10px;
+}
+
+.reportDatasetOption input,
+.reportSectionChoices input,
+.reportChartOptions input {
+  accent-color: #1d4ed8;
+  height: 16px;
+  width: 16px;
+}
+
+.reportDatasetName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.reportDatasetOption .reportDatasetName {
+  color: #1e293b;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.reportDatasetOption small {
+  color: #64748b;
+  font-size: 0.75rem;
+  grid-column: 2 / -1;
+}
+
+.reportSectionChoices {
+  display: grid;
+  gap: 8px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.reportSectionChoices label,
+.reportChartOptions > label {
+  align-items: flex-start;
+  color: #334155;
+  display: flex;
+  font-size: 0.82rem;
+  gap: 8px;
+  line-height: 1.45;
+}
+
+.reportSectionChoices input,
+.reportChartOptions input {
+  flex: 0 0 auto;
+  margin: 1px 0 0;
+}
+
+.reportChartOptions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.reportChartOptions legend {
+  grid-column: 1 / -1;
+}
+
+.reportDistributionChoice {
+  display: grid;
+  gap: 6px;
+  grid-column: 1 / -1;
+}
+
+.reportDistributionChoice > span {
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.reportSampleOptions label {
+  max-width: 260px;
+}
+
+.reportReview {
+  background: #f8fafc;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 13px;
+}
+
+.reportReview h3 {
+  color: #1e3a8a;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.reportReview p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.reportReviewNote {
+  background: #eff6ff;
+  border-left: 3px solid #60a5fa;
+  padding: 8px 10px;
+}
+
+.reportUnavailable {
+  color: #475569;
+  font-size: 0.82rem;
+}
+
+.reportUnavailable summary {
+  cursor: pointer;
+  font-weight: 750;
+  padding: 4px 0;
+}
+
+.reportUnavailable li {
+  line-height: 1.45;
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+
+.reportBuilderActions {
+  align-items: flex-end;
+}
+
+.reportBuilderActions > span {
+  flex: 1 1 320px;
+}
+
+.reportBuilderActions button {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.reportBuilder button:focus-visible,
+.reportBuilder input:focus-visible,
+.reportBuilder textarea:focus-visible,
+.reportBuilder select:focus-visible,
+.reportBuilder summary:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .reportMetadataFields,
+  .reportSectionChoices,
+  .reportChartOptions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reportDatasetOption {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .reportDatasetOption small {
+    grid-column: 2;
+  }
+
+  .reportSelectionActions > span {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .reportBuilderActions button {
+    justify-content: center;
+    width: 100%;
+  }
+}

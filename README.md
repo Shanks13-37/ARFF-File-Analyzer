@@ -145,6 +145,8 @@ Maximum-missing rules pass at or below their configured percentage. Numeric rang
 
 Use the fixed left/right arrows at the sides of the page to move between batch results. To make a combined PDF, select the analyzed files in the report selector and choose **Export selected**. Each selected file receives its own report in the same PDF, beginning on a new page. Files rejected before analysis are not available for PDF export.
 
+The **Professional report builder** is available in each analysis view. It creates a configurable PDF for the current dataset or any selected analyzed files in the current batch. Users can choose analysis sections and native summary/distribution charts; scatter plots and correlation matrices remain interactive-only, with that limitation disclosed in the preview and report. Custom quality rules are re-evaluated against each selected original upload immediately before export and remain session-only. The optional record sample is off by default, capped at 20 parsed rows and eight attributes, and is taken from the unfiltered source records. Long values and large diagnostic lists are visibly capped in the PDF. The report is generated in the authenticated browser session and is not persisted server-side. Existing selected/combined PDF exports remain available.
+
 ## Configuration
 
 Copy `.env.example` to `.env` and configure the variables below. Do not commit real secrets.
