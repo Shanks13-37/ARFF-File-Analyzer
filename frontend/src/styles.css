@@ -1305,6 +1305,14 @@ main {
   min-height: 150px;
   padding: 24px;
   text-align: center;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dropzone.dragActive {
+  background: #e0f2fe;
+  border-color: #2563eb;
+  border-style: solid;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
 }
 
 .dropzone.disabled {
@@ -1322,8 +1330,90 @@ main {
 }
 
 .dropzone strong {
-  color: #334155;
+  color: #64748b;
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.selectedFileList {
+  background: rgba(248, 250, 252, 0.88);
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.selectedFileListHeading {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  justify-content: space-between;
+  padding: 2px 4px 6px;
+}
+
+.selectedFileListHeading strong {
+  color: #1e3a8a;
+  font-size: 0.9rem;
+}
+
+.selectedFileListHeading span,
+.selectedFileItem small {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.selectedFileItem {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e0f2fe;
+  border-radius: 11px;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 8px 7px 12px;
+}
+
+.selectedFileName {
+  color: #334155;
+  flex: 1 1 auto;
+  font-size: 0.88rem;
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.selectedFileRemove {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 50%;
+  box-shadow: none;
+  color: #be123c;
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+  height: 30px;
+  line-height: 1;
+  min-height: 30px;
+  padding: 0;
+  width: 30px;
+}
+
+.selectedFileRemove:hover:not(:disabled) {
+  background: #ffe4e6;
+  box-shadow: none;
+  transform: none;
+}
+
+.selectionNotice {
+  color: #475569;
+  font-size: 0.84rem;
+  margin: 0;
 }
 
 .fileCheck,

@@ -654,6 +654,8 @@ function UploadWorkspace({ token, user, onLogout }) {
   const [exportingReports, setExportingReports] = useState(false);
   const [exportError, setExportError] = useState("");
   const [selectionError, setSelectionError] = useState("");
+  const [selectionNotice, setSelectionNotice] = useState("");
+  const [dragActive, setDragActive] = useState(false);
   const [progressMessage, setProgressMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -674,6 +676,7 @@ function UploadWorkspace({ token, user, onLogout }) {
 
     setLoading(true);
     setSelectionError("");
+    setSelectionNotice("");
     setProgressMessage("");
     setUploadResults([]);
     setActiveResultIndex(0);
@@ -729,15 +732,58 @@ function UploadWorkspace({ token, user, onLogout }) {
     }
   }
 
-  function changeFiles(event) {
-    setSelectedFiles(Array.from(event.target.files || []));
+  function fileKey(file) {
+    return `${file.webkitRelativePath || file.name}:${file.size}:${file.lastModified}`;
+  }
+
+  function clearUploadResults() {
     setUploadResults([]);
     setActiveResultIndex(0);
-    setSelectionError("");
     setProgressMessage("");
     setSelectedReportIndices([]);
     setExportError("");
+  }
+
+  function addFiles(fileList) {
+    const incomingFiles = Array.from(fileList || []);
+    const selectedKeys = new Set(selectedFiles.map(fileKey));
+    const filesToAdd = incomingFiles.filter((file) => {
+      const key = fileKey(file);
+      if (selectedKeys.has(key)) return false;
+      selectedKeys.add(key);
+      return true;
+    });
+
+    setSelectionError("");
+    if (!filesToAdd.length) {
+      if (incomingFiles.length) setSelectionNotice("Those files are already in the selection.");
+      return;
+    }
+
+    setSelectedFiles((current) => {
+      const currentKeys = new Set(current.map(fileKey));
+      return [...current, ...filesToAdd.filter((file) => !currentKeys.has(fileKey(file)))];
+    });
+    setSelectionNotice(filesToAdd.length < incomingFiles.length ? "Already-selected duplicates were skipped." : "");
+    clearUploadResults();
+  }
+
+  function changeFiles(event) {
+    addFiles(event.target.files);
     event.target.value = "";
+  }
+
+  function removeSelectedFile(index) {
+    setSelectedFiles((current) => current.filter((_file, fileIndex) => fileIndex !== index));
+    setSelectionError("");
+    setSelectionNotice("");
+    clearUploadResults();
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    setDragActive(false);
+    if (!loading) addFiles(event.dataTransfer?.files);
   }
 
   function showPreviousResult() {
@@ -798,7 +844,15 @@ function UploadWorkspace({ token, user, onLogout }) {
             </div>
           </div>
 
-          <label className={`dropzone${loading ? " disabled" : ""}`}>
+          <label
+            className={`dropzone${loading ? " disabled" : ""}${dragActive ? " dragActive" : ""}`}
+            onDragEnter={(event) => { event.preventDefault(); if (!loading) setDragActive(true); }}
+            onDragOver={(event) => { event.preventDefault(); if (!loading) setDragActive(true); }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setDragActive(false);
+            }}
+            onDrop={handleDrop}
+          >
             <input
               type="file"
               accept=".arff"
@@ -806,15 +860,34 @@ function UploadWorkspace({ token, user, onLogout }) {
               disabled={loading}
               onChange={changeFiles}
             />
-            <span>Choose files</span>
-            <strong>
-              {selectedFiles.length === 0
-                ? "No files selected"
-                : selectedFiles.length === 1
-                  ? selectedFiles[0].name
-                  : `${selectedFiles.length} files selected`}
-            </strong>
+            <span>{dragActive ? "Drop files to add them" : "Choose files or drag and drop"}</span>
+            <strong>Add multiple .arff files here, then review or remove them before validation.</strong>
           </label>
+
+          {selectedFiles.length > 0 && (
+            <div className="selectedFileList" aria-label="Files selected for validation">
+              <div className="selectedFileListHeading">
+                <strong>{selectedFiles.length} file{selectedFiles.length === 1 ? "" : "s"} ready</strong>
+                <span>Add or remove files before validating</span>
+              </div>
+              {selectedFiles.map((file, index) => (
+                <div className="selectedFileItem" key={`${fileKey(file)}-${index}`}>
+                  <span className="selectedFileName" title={file.name}>{file.name}</span>
+                  <small>{(file.size / (1024 * 1024)).toFixed(2)} MB</small>
+                  <button
+                    type="button"
+                    className="selectedFileRemove"
+                    onClick={() => removeSelectedFile(index)}
+                    disabled={loading}
+                    aria-label={`Remove ${file.name} from selection`}
+                    title={`Remove ${file.name}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {selectedFiles.length > 0 && (
             <div className={`fileCheck ${allFilesHaveArffExtension ? "valid" : "invalid"}`}>
@@ -827,6 +900,7 @@ function UploadWorkspace({ token, user, onLogout }) {
             </div>
           )}
 
+          {selectionNotice && <p className="selectionNotice" role="status">{selectionNotice}</p>}
           {selectionError && <div className="result failure">{selectionError}</div>}
           {progressMessage && <p className="uploadProgress" aria-live="polite">{progressMessage}</p>}
 
