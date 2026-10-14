@@ -8,14 +8,29 @@ import {
 const NUMERIC = new Set(["numeric", "real", "integer"]);
 const numberFormat = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 5 });
 const nfmt = (value) => numberFormat.format(value);
+const BAR_PATTERNS = [
+  { background: "#bfdbfe", stroke: "#1d4ed8", path: "M-2 2 L2 -2 M0 8 L8 0 M6 10 L10 6" },
+  { background: "#fecaca", stroke: "#b91c1c", path: "M-2 6 L2 10 M0 0 L8 8 M6 -2 L10 2" },
+  { background: "#99f6e4", stroke: "#0f766e", path: "M-2 2 L2 -2 M0 8 L8 0 M6 10 L10 6 M-2 6 L2 10 M0 0 L8 8 M6 -2 L10 2" },
+  { background: "#fde68a", stroke: "#92400e", path: "M-2 2 L2 -2 M0 8 L8 0 M6 10 L10 6 M0 0 L0 8 M4 0 L4 8" },
+  { background: "#e9d5ff", stroke: "#7e22ce", path: "M0 0 L8 8 M8 0 L0 8" },
+  { background: "#d9f99d", stroke: "#4d7c0f", path: "M-2 2 L2 -2 M0 8 L8 0 M6 10 L10 6" }
+];
+
+function BarPatternDefs({ idPrefix }) {
+  return <defs>{BAR_PATTERNS.map((pattern, index) => <pattern key={index} id={`${idPrefix}-${index}`} width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill={pattern.background} /><path d={pattern.path} fill="none" stroke={pattern.stroke} strokeWidth="1.2" /></pattern>)}</defs>;
+}
 
 function Histogram({ data, attribute }) {
   if (!data.validCount) return <p className="empty">No valid numeric observations. Missing and invalid values are excluded.</p>;
   const width = 760; const left = 58; const plotWidth = width - left - 16;
   const max = Math.max(1, ...data.bins.map((bin) => bin.count)); const slot = plotWidth / data.bins.length;
+  const patternIndex = (Number(attribute.index) || 0) % BAR_PATTERNS.length;
+  const patternId = `hist-${attribute.index ?? 0}-pattern-${patternIndex}`;
   return <><div className="explorationChartScroll"><svg className="explorationSvg" viewBox="0 0 760 310" role="img" aria-label={"Histogram of " + attribute.name}>
+    <BarPatternDefs idPrefix={`hist-${attribute.index ?? 0}-pattern`} />
     <line className="explorationAxis" x1={left} y1="250" x2="744" y2="250" />
-    {data.bins.map((bin, index) => { const height = bin.count / max * 210; const x = left + index * slot + 1; return <g key={index}><title>{nfmt(bin.start) + " to " + nfmt(bin.end) + ": " + bin.count + " records"}</title><rect className="explorationBar" x={x} y={250 - height} width={Math.max(1, slot - 2)} height={height} rx="3" /><text className="explorationValue" x={x + slot / 2} y={Math.max(18, 250 - height - 8)} textAnchor="middle">{bin.count}</text><text className="explorationTick" x={x + slot / 2} y="272" textAnchor="middle">{index % Math.ceil(data.bins.length / 5) === 0 ? nfmt(bin.start) : ""}</text></g>; })}
+    {data.bins.map((bin, index) => { const height = bin.count / max * 210; const x = left + index * slot + 1; return <g key={index}><title>{nfmt(bin.start) + " to " + nfmt(bin.end) + ": " + bin.count + " records"}</title><rect className="explorationBar" fill={`url(#${patternId})`} x={x} y={250 - height} width={Math.max(1, slot - 2)} height={height} rx="3" /><text className="explorationValue" x={x + slot / 2} y={Math.max(18, 250 - height - 8)} textAnchor="middle">{bin.count}</text><text className="explorationTick" x={x + slot / 2} y="272" textAnchor="middle">{index % Math.ceil(data.bins.length / 5) === 0 ? nfmt(bin.start) : ""}</text></g>; })}
     <text className="explorationAxisLabel" x="18" y="145" transform="rotate(-90 18 145)" textAnchor="middle">Record count</text><text className="explorationAxisLabel" x="400" y="302" textAnchor="middle">{attribute.name}</text>
   </svg></div><p className="explorationCaption">{data.validCount} valid · {data.missingCount} missing · {data.invalidCount} invalid · {HISTOGRAM_BINS} bins by default. Range {nfmt(data.minimum)}–{nfmt(data.maximum)}.</p></>;
 }
@@ -24,9 +39,12 @@ function Categories({ data, attribute, onSelect }) {
   if (!data.validCount) return <p className="empty">No observed values are available.</p>;
   const width = Math.max(620, data.categories.length * 76); const slot = (width - 56) / data.categories.length;
   const max = Math.max(1, ...data.categories.map((item) => item.count)); const bar = Math.min(48, slot * 0.65);
+  const patternIndex = (Number(attribute.index) || 0) % BAR_PATTERNS.length;
+  const patternId = `category-${attribute.index ?? 0}-pattern-${patternIndex}`;
   return <><div className="explorationChartScroll"><svg className="explorationSvg categorySvg" viewBox={"0 0 " + width + " 310"} role="group" aria-label={"Category frequencies for " + attribute.name}>
+    <BarPatternDefs idPrefix={`category-${attribute.index ?? 0}-pattern`} />
     <line className="explorationAxis" x1="42" y1="250" x2={width - 14} y2="250" />
-    {data.categories.map((item, index) => { const x = 42 + slot * index + (slot - bar) / 2; const height = item.count / max * 210; const select = () => onSelect(attribute.index, item.value); return <g key={item.value} className="explorationCategory" role="button" tabIndex="0" aria-label={"Filter to " + (item.value || "empty string") + ", " + item.count + " records"} onClick={select} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } }}><title>{(item.value || "(empty string)") + ": " + item.count + " records. Select to filter."}</title><rect className="explorationBar" x={x} y={250 - height} width={bar} height={height} rx="3" /><text className="explorationValue" x={x + bar / 2} y={Math.max(27, 244 - height)} textAnchor="middle">{item.count}</text><text className="explorationTick" x={x + bar / 2} y="272" textAnchor="middle">{item.value.length > 10 ? item.value.slice(0, 9) + "…" : item.value || "(empty)"}</text></g>; })}
+    {data.categories.map((item, index) => { const x = 42 + slot * index + (slot - bar) / 2; const height = item.count / max * 210; const select = () => onSelect(attribute.index, item.value); return <g key={item.value} className="explorationCategory" role="button" tabIndex="0" aria-label={"Filter to " + (item.value || "empty string") + ", " + item.count + " records"} onClick={select} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } }}><title>{(item.value || "(empty string)") + ": " + item.count + " records. Select to filter."}</title><rect className="explorationBar" fill={`url(#${patternId})`} x={x} y={250 - height} width={bar} height={height} rx="3" /><text className="explorationValue" x={x + bar / 2} y={Math.max(27, 244 - height)} textAnchor="middle">{item.count}</text><text className="explorationTick" x={x + bar / 2} y="272" textAnchor="middle">{item.value.length > 10 ? item.value.slice(0, 9) + "…" : item.value || "(empty)"}</text></g>; })}
     <text className="explorationAxisLabel" x="18" y="145" transform="rotate(-90 18 145)" textAnchor="middle">Record count</text><text className="explorationAxisLabel" x={width / 2} y="302" textAnchor="middle">{attribute.name} · select a bar to filter</text>
   </svg></div><p className="explorationCaption">{data.validCount} observed · {data.missingCount} missing · {data.totalDistinct} distinct. {data.truncated ? "Showing the " + CATEGORY_LIMIT + " most frequent values." : "All observed values shown."} Select a bar to filter records.</p></>;
 }

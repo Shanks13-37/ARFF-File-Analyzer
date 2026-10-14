@@ -918,7 +918,6 @@ main {
 }
 
 .explorationBar {
-  fill: #2563eb;
   opacity: 0.82;
 }
 
@@ -929,7 +928,6 @@ main {
 
 .explorationCategory:focus .explorationBar,
 .explorationCategory:hover .explorationBar {
-  fill: #1d4ed8;
   opacity: 1;
   stroke: #0f172a;
   stroke-width: 2;
