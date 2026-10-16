@@ -70,3 +70,11 @@ model ActivityLog {
   @@index([action])
   @@index([ipAddress])
 }
+
+model WebsiteBranding {
+  id          String   @id @default("site")
+  image       Bytes?
+  contentType String?
+  displaySize Int      @default(48)
+  updatedAt   DateTime @updatedAt
+}

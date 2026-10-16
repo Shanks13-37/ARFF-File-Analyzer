@@ -37,7 +37,7 @@ services:
       VITE_API_URL: ""
     ports:
       - "4000:4000"
-    command: ["sh", "-c", "npx prisma db push && npm run db:seed && npm start"]
+    command: ["sh", "-c", "node prisma/safe-startup.js && npm run db:seed && npm start"]
 
 volumes:
   postgres_data:

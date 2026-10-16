@@ -52,7 +52,13 @@ if (isProduction) {
   app.set("trust proxy", 1);
 }
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      "img-src": ["'self'", "data:", "blob:"]
+    }
+  }
+}));
 app.use(
   cors({
     origin(origin, callback) {

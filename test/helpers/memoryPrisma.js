@@ -3,10 +3,15 @@ export function createMemoryDatabase() {
   const datasets = [];
   const activityLogs = [];
   let nextId = 1;
+  let websiteBranding = null;
   return {
     users,
     datasets,
     activityLogs,
+    websiteBranding: {
+      async findUnique() { return websiteBranding; },
+      async upsert({ create, update }) { websiteBranding = { ...(websiteBranding || create), ...update, ...(websiteBranding ? {} : create), updatedAt: new Date() }; return websiteBranding; }
+    },
     user: {
       async findUnique({ where }) {
         return users.find((user) => Object.entries(where).every(([key, value]) => user[key] === value)) || null;

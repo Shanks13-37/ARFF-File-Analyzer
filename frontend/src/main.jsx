@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
@@ -24,6 +24,8 @@ import {
 import AnalysisResult from "./components/AnalysisResult.jsx";
 import { exportCombinedAnalysisPdf } from "./components/exportPdf.js";
 import { logClientError } from "./utils/errorLogger.js";
+import { brandingImageSrc, getBrandingSnapshot, loadBranding, publishBranding, subscribeToBranding } from "./utils/brandingStore.js";
+import { createLogoPreview, revokeLogoPreview, validateLogoSelection } from "./utils/logoPreview.js";
 import "./styles.css";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
@@ -125,6 +127,13 @@ function DatasetHistory({ token, isAdmin = false, refreshKey = 0 }) {
 
 function Header({ activePage, user, onLogout }) {
   const isAdmin = user?.role === "ADMIN";
+  const branding = useSyncExternalStore(subscribeToBranding, getBrandingSnapshot, getBrandingSnapshot);
+  const [failedImageUrl, setFailedImageUrl] = useState("");
+
+  useEffect(() => {
+    loadBranding().catch(() => {});
+  }, []);
+  useEffect(() => setFailedImageUrl(""), [branding.revision]);
 
   return (
     <nav className="nav">
@@ -136,7 +145,7 @@ function Header({ activePage, user, onLogout }) {
           navigate(isAdmin ? "/admin" : "/");
         }}
       >
-        <Database size={22} />
+        {branding.hasLogo && branding.imageUrl && failedImageUrl !== branding.imageUrl ? <span className="brandLogoSlot" style={{ width: branding.displaySize, height: branding.displaySize }}><img src={brandingImageSrc(branding.imageUrl, branding.revision)} alt="" onError={() => setFailedImageUrl(branding.imageUrl)} style={{ maxWidth: branding.displaySize - 4, maxHeight: branding.displaySize - 4 }} /></span> : <Database size={22} />}
         <span>ARFF File Analyzer</span>
       </a>
       <div className="navLinks">
@@ -201,6 +210,74 @@ function Header({ activePage, user, onLogout }) {
       </div>
     </nav>
   );
+}
+
+function WebsiteLogoSettings({ token }) {
+  const branding = useSyncExternalStore(subscribeToBranding, getBrandingSnapshot, getBrandingSnapshot);
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [previewError, setPreviewError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const fileInput = useRef(null);
+
+  useEffect(() => {
+    loadBranding().catch((error) => setMessage(error.message));
+  }, []);
+  useEffect(() => {
+    return () => revokeLogoPreview(preview);
+  }, [preview]);
+  function selectFile(event) {
+    const selected = event.target.files?.[0];
+    if (!selected) return; // Cancel leaves the current selection and preview intact.
+    const validationError = validateLogoSelection(selected);
+    if (validationError) { setFile(null); setPreview(""); setPreviewError(""); setMessage(validationError); event.target.value = ""; return; }
+    let url;
+    try { url = createLogoPreview(selected); }
+    catch { setMessage("This browser could not create an image preview. Try another image."); return; }
+    setFile(selected); setPreview(url); setPreviewError(""); setMessage("");
+  }
+  function clearSelection(input) {
+    setFile(null); setPreview(""); setPreviewError(""); setMessage("");
+    if (input?.current) input.current.value = "";
+  }
+  async function save(event) {
+    event.preventDefault();
+    if (!file) { setMessage("Choose a logo file first."); return; }
+    setBusy(true); setMessage("");
+    try {
+      const formData = new FormData(); formData.append("logo", file); formData.append("displaySize", String(branding.displaySize));
+      const data = await parseJson(await fetch(`${API_URL}/api/admin/branding/logo`, { method: "PUT", headers: authHeaders(token), body: formData }));
+      publishBranding(data); setFile(null); setPreview(""); setPreviewError(""); setMessage("Website logo saved.");
+    } catch (error) { setMessage(error.message); } finally { setBusy(false); }
+  }
+  async function changeSize(size) {
+    setMessage("");
+    try {
+      const data = await parseJson(await fetch(`${API_URL}/api/admin/branding/size`, { method: "PATCH", headers: { "Content-Type": "application/json", ...authHeaders(token) }, body: JSON.stringify({ displaySize: size }) }));
+      publishBranding(data);
+    } catch (error) { setMessage(error.message); }
+  }
+  async function remove() {
+    if (!window.confirm("Remove the website logo and restore the default icon?")) return;
+    setBusy(true); setMessage("");
+    try {
+      const data = await parseJson(await fetch(`${API_URL}/api/admin/branding/logo`, { method: "DELETE", headers: authHeaders(token) }));
+      publishBranding(data); clearSelection(fileInput); setMessage("Website logo removed.");
+    } catch (error) { setMessage(error.message); } finally { setBusy(false); }
+  }
+  const activeImage = preview || (branding.hasLogo ? brandingImageSrc(branding.imageUrl, branding.revision) : "");
+  const feedbackIsError = Boolean(message && !["Website logo saved.", "Website logo removed."].includes(message));
+  return <form className="settingsPanel logoSettings" onSubmit={save}>
+    <div className="panelHeader"><Database size={22} /><div><h2>Website Logo</h2><p>Set the logo shown beside the site name in the shared header.</p></div></div>
+    <label className="field"><span>Choose logo (JPEG, PNG, SVG, WEBP; under 100,000 bytes)</span><input ref={fileInput} type="file" accept="image/jpeg,image/png,image/svg+xml,image/webp,.jpg,.jpeg,.png,.svg,.webp" onChange={selectFile} /></label>
+    <label className="field"><span>Display size</span><select value={branding.displaySize} onChange={(event) => changeSize(Number(event.target.value))}><option value="24">24 × 24 px</option><option value="32">32 × 32 px</option><option value="48">48 × 48 px</option><option value="64">64 × 64 px</option></select></label>
+    <div className="logoPreviewWrap"><span>Preview</span><span className="brandLogoSlot" style={{ width: branding.displaySize, height: branding.displaySize }}>{activeImage && !previewError && <img src={activeImage} alt="Website logo preview" onLoad={() => setPreviewError("")} onError={() => setPreviewError("This image could not be decoded for preview. Choose a valid image file.")} style={{ maxWidth: branding.displaySize - 4, maxHeight: branding.displaySize - 4 }} />}</span></div>
+    {previewError && <div className="result failure" role="alert">{previewError}</div>}
+    <p className="logoSizingNote">The selected slot includes 2 px padding on each side. The image fits inside a {Math.max(0, branding.displaySize - 4)} × {Math.max(0, branding.displaySize - 4)} px square with its aspect ratio preserved.</p>
+    {message && <div className={`result ${feedbackIsError ? "failure" : "success"}`} role={feedbackIsError ? "alert" : "status"}>{message}</div>}
+    <div className="logoActions"><button type="submit" disabled={busy || !file || Boolean(previewError)}>{busy ? "Saving…" : branding.hasLogo ? "Replace Logo" : "Save Logo"}</button>{file && <button className="secondaryButton" type="button" disabled={busy} onClick={() => clearSelection(fileInput)}>Clear Selection</button>}{branding.hasLogo && <button className="secondaryButton" type="button" disabled={busy} onClick={remove}>Remove Logo</button>}</div>
+  </form>;
 }
 
 function BackgroundEffects() {
@@ -1151,6 +1228,7 @@ function AdminDashboard({ token, user, onUserUpdated, onLogout, view = "admin" }
 
       {showSettings && (
       <div className="settingsGrid">
+        {isAdmin && <WebsiteLogoSettings token={token} />}
         <form className="settingsPanel" onSubmit={saveDetails}>
           <div className="panelHeader">
             <Settings size={22} />
